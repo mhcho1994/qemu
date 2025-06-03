@@ -375,12 +375,13 @@ void plugin_register_dyn_cb__udata(GArray **arr,
                               dh_typemask(i32, 1) |
                               dh_typemask(ptr, 2))
     };
-    assert((unsigned)flags < ARRAY_SIZE(info));
+    assert(((unsigned)flags & (~(QEMU_PLUGIN_CB_RW_CFI))) < ARRAY_SIZE(info));
 
     struct qemu_plugin_dyn_cb *dyn_cb = plugin_get_dyn_cb(arr);
     struct qemu_plugin_regular_cb regular_cb = { .f.vcpu_udata = cb,
+												 .rw = flags,
                                                  .userp = udata,
-                                                 .info = &info[flags] };
+                                                 .info = &info[flags & (~(QEMU_PLUGIN_CB_RW_CFI))] };
     dyn_cb->type = PLUGIN_CB_REGULAR;
     dyn_cb->regular = regular_cb;
 }

@@ -617,6 +617,12 @@ int64_t timerlistgroup_deadline_ns(QEMUTimerListGroup *tlg)
     return deadline;
 }
 
+static int64_t qemu_start_time;
+void qemu_host_clock_start(void) {
+	qemu_start_time = qemu_clock_get_ns(QEMU_CLOCK_HOST);
+}
+
+
 int64_t qemu_clock_get_ns(QEMUClockType type)
 {
     switch (type) {
@@ -629,6 +635,8 @@ int64_t qemu_clock_get_ns(QEMUClockType type)
         return REPLAY_CLOCK(REPLAY_CLOCK_HOST, get_clock_realtime());
     case QEMU_CLOCK_VIRTUAL_RT:
         return REPLAY_CLOCK(REPLAY_CLOCK_VIRTUAL_RT, cpu_get_clock());
+	case QEMU_CLOCK_START:
+		return (((unsigned long long)REPLAY_CLOCK(REPLAY_CLOCK_HOST, get_clock_realtime())) - ((unsigned long long)qemu_start_time));
     }
 }
 

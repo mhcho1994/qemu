@@ -120,7 +120,12 @@ static void gen_udata_cb(struct qemu_plugin_regular_cb *cb)
     tcg_gen_call2(cb->f.vcpu_udata, cb->info, NULL,
                   tcgv_i32_temp(cpu_index),
                   tcgv_ptr_temp(tcg_constant_ptr(cb->userp)));
+
     tcg_temp_free_i32(cpu_index);
+	//Take input from user if they plan to disturb CF
+	if (cb->rw & QEMU_PLUGIN_CB_RW_CFI) {
+		tcg_gen_exit_tb(NULL, 0);
+	}
 }
 
 static TCGv_ptr gen_plugin_u64_ptr(qemu_plugin_u64 entry)

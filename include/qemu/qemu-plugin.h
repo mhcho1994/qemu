@@ -208,6 +208,10 @@ QEMU_PLUGIN_API
 void qemu_plugin_register_vcpu_exit_cb(qemu_plugin_id_t id,
                                        qemu_plugin_vcpu_simple_cb_t cb);
 
+
+QEMU_PLUGIN_API
+void qemu_plugin_set_register(uint8_t *mem_buf, int reg);
+
 /**
  * qemu_plugin_register_vcpu_idle_cb() - register a vCPU idle callback
  * @id: plugin ID
@@ -218,6 +222,9 @@ void qemu_plugin_register_vcpu_exit_cb(qemu_plugin_id_t id,
 QEMU_PLUGIN_API
 void qemu_plugin_register_vcpu_idle_cb(qemu_plugin_id_t id,
                                        qemu_plugin_vcpu_simple_cb_t cb);
+
+QEMU_PLUGIN_API
+int64_t qemu_plugin_host_start_ns(void);
 
 /**
  * qemu_plugin_register_vcpu_resume_cb() - register a vCPU resume callback
@@ -262,6 +269,7 @@ enum qemu_plugin_cb_flags {
     QEMU_PLUGIN_CB_NO_REGS,
     QEMU_PLUGIN_CB_R_REGS,
     QEMU_PLUGIN_CB_RW_REGS,
+	QEMU_PLUGIN_CB_RW_CFI = 4,
 };
 
 enum qemu_plugin_mem_rw {

@@ -6,3 +6,7 @@
 
 # Load QEMU-specific sub-commands and settings
 source scripts/qemu-gdb.py
+b vcpu_insn_exec_before
+#run --plugin ./tests/tcg/plugins/libvirtual.so,inline=false,sizes=false,match=0x401000,trace=true -d in_asm,op -D qemu.log -machine mps2-an385 -monitor null -semihosting --semihosting-config enable=on,target=native -kernel ws/RTOSDemo.axf -serial stdio -nographic -gdb tcp::1235 -S
+
+run --plugin ./tests/tcg/plugins/libvirtual.so -machine mps2-an385 -monitor null -kernel ws/RTOSDemo.axf -serial stdio -nographic

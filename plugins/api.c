@@ -83,6 +83,11 @@ static bool tb_is_mem_only(void)
     return tb_cflags(tcg_ctx->gen_tb) & CF_MEMI_ONLY;
 }
 
+extern int64_t qemu_start_time(void);
+int64_t qemu_plugin_host_start_ns(void) {
+	return qemu_clock_get_ns(QEMU_CLOCK_START);
+}
+
 void qemu_plugin_register_vcpu_tb_exec_cb(struct qemu_plugin_tb *tb,
                                           qemu_plugin_vcpu_udata_cb_t cb,
                                           enum qemu_plugin_cb_flags flags,
@@ -432,6 +437,15 @@ GArray *qemu_plugin_get_registers(void)
     g_autoptr(GArray) regs = gdb_get_register_list(current_cpu);
     return create_register_handles(regs);
 }
+
+
+void qemu_plugin_set_register(uint8_t *mem_buf, int reg)
+{
+    g_assert(current_cpu);
+
+    gdb_write_register(current_cpu, mem_buf, reg);
+}
+
 
 bool qemu_plugin_read_memory_vaddr(uint64_t addr, GByteArray *data, size_t len)
 {

@@ -65,9 +65,9 @@ static int os_darwin_cfrunloop_main(void)
 }
 int (*qemu_main)(void) = os_darwin_cfrunloop_main;
 #endif
-
 int main(int argc, char **argv)
 {
+	qemu_host_clock_start();
     qemu_init(argc, argv);
 
     /*

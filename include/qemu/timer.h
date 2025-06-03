@@ -49,7 +49,8 @@ typedef enum {
     QEMU_CLOCK_VIRTUAL = 1,
     QEMU_CLOCK_HOST = 2,
     QEMU_CLOCK_VIRTUAL_RT = 3,
-    QEMU_CLOCK_MAX
+	QEMU_CLOCK_START = 4,
+	QEMU_CLOCK_MAX
 } QEMUClockType;
 
 /**
@@ -103,6 +104,8 @@ extern QEMUTimerListGroup main_loop_tlg;
  * Returns: the clock value in nanoseconds
  */
 int64_t qemu_clock_get_ns(QEMUClockType type);
+
+void qemu_host_clock_start(void);
 
 /**
  * qemu_clock_get_ms;

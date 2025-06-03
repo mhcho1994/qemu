@@ -23,7 +23,7 @@ enum ReplayClockKind {
     REPLAY_CLOCK_HOST,
     /* virtual_rt_clock */
     REPLAY_CLOCK_VIRTUAL_RT,
-    REPLAY_CLOCK_COUNT
+    REPLAY_CLOCK_COUNT,
 };
 typedef enum ReplayClockKind ReplayClockKind;
 
