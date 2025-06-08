@@ -229,6 +229,34 @@ void gen_inline_update_pc_cb(struct qemu_plugin_inline_cb *cb) {
 	update_reg(cb->imm, cb->entry.offset);
 }
 
+extern void *gpa2hva(MemoryRegion **p_mr, hwaddr addr, uint64_t size, Error **errp);
+unsigned long long get_gpa2hva(unsigned long long addr);
+unsigned long long get_gpa2hva(unsigned long long addr) {
+    Error *local_err = NULL;
+    MemoryRegion *mr = NULL;
+    void *ptr;
+
+    ptr = gpa2hva(&mr, addr, 1, &local_err);
+	return (unsigned long long) ptr;
+
+}
+void gen_inline_update_mem_cb(struct qemu_plugin_inline_cb *cb);
+void gen_inline_update_mem_cb(struct qemu_plugin_inline_cb *cb) {
+	unsigned long long addr= get_gpa2hva(cb->imm);
+	int value = cb->entry.offset;
+
+	TCGv_ptr ptr = tcg_constant_ptr((intptr_t)addr);
+	TCGv_i32 val = tcg_constant_i32(value & 0xFF);
+
+
+    // Emit a store of a single byte (8 bits)
+    tcg_gen_st8_i32(val, ptr, 0);
+
+    // Free the temporaries
+    tcg_temp_free_ptr(ptr);
+    tcg_temp_free_i32(val);
+}
+
 static void inject_cb(struct qemu_plugin_dyn_cb *cb)
 
 {
@@ -247,6 +275,9 @@ static void inject_cb(struct qemu_plugin_dyn_cb *cb)
         break;
 	case PLUGIN_CB_INLINE_UPDATE_REG:
 		gen_inline_update_pc_cb(&cb->inline_insn);
+		break;
+	case PLUGIN_CB_INLINE_UPDATE_MEM:
+		gen_inline_update_mem_cb(&cb->inline_insn);
 		break;
     default:
         g_assert_not_reached();

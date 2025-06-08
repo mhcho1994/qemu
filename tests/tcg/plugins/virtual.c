@@ -355,6 +355,12 @@ static void vcpu_tb_trans(qemu_plugin_id_t id, struct qemu_plugin_tb *tb)
                 entry.offset = (e->value);
                 qemu_plugin_register_vcpu_insn_exec_inline_per_vcpu(insn, QEMU_PLUGIN_INLINE_UPDATE_REG, entry, e->target.reg_num);
 	        } else if (e->type == TARGET_MEMORY) {
+				printf("Target: r%d, ", e->target.reg_num);
+                qemu_plugin_u64 entry;
+                // In TCG frontend it is already set, if you want to modify it you will have to
+                // change CPSR.
+                entry.offset = (e->value);
+                qemu_plugin_register_vcpu_insn_exec_inline_per_vcpu(insn, QEMU_PLUGIN_INLINE_UPDATE_MEM, entry, e->target.addr);
     	        printf("Target: 0x%lx, ", e->target.addr);
        		}
 

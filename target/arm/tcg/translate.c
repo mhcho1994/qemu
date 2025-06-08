@@ -89,6 +89,20 @@ void update_reg(int reg, int target) {
 	}
 }
 
+#if 0
+void update_mem(unsigned long long addr, int value);
+void update_mem(int reg, int target) {
+	TCGv_ptr ptr = tcg_const_ptr((void *)addr);
+    TCGv_i32 val = tcg_const_i32(value & 0xFF);  // Mask to ensure it's a byte
+
+    // Emit a store of a single byte (8 bits)
+    tcg_gen_st_i8(val, ptr, 0);
+
+    // Free the temporaries
+    tcg_temp_free_ptr(ptr);
+    tcg_temp_free_i32(val);
+}
+#endif 
 
 uint64_t asimd_imm_const(uint32_t imm, int cmode, int op)
 {
