@@ -212,6 +212,9 @@ void qemu_plugin_register_vcpu_exit_cb(qemu_plugin_id_t id,
 QEMU_PLUGIN_API
 void qemu_plugin_set_register(uint8_t *mem_buf, int reg);
 
+QEMU_PLUGIN_API
+void qemu_plugin_raise_irq(int irq);
+
 /**
  * qemu_plugin_register_vcpu_idle_cb() - register a vCPU idle callback
  * @id: plugin ID
@@ -399,6 +402,7 @@ void qemu_plugin_register_vcpu_tb_exec_cond_cb(struct qemu_plugin_tb *tb,
 enum qemu_plugin_op {
     QEMU_PLUGIN_INLINE_ADD_U64,
     QEMU_PLUGIN_INLINE_STORE_U64,
+	QEMU_PLUGIN_INLINE_UPDATE_REG,
 };
 
 /**

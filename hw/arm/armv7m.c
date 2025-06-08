@@ -25,6 +25,7 @@
 #include "target/arm/cpu-features.h"
 #include "target/arm/cpu-qom.h"
 #include "migration/vmstate.h"
+#include "hw/irq.h"
 
 /* Bitbanded IO.  Each word corresponds to a single bit.  */
 
@@ -587,6 +588,30 @@ static void armv7m_reset(void *opaque)
     ARMCPU *cpu = opaque;
 
     cpu_reset(CPU(cpu));
+}
+
+void raise_irq(CPUState *cs, int irq_num);
+void raise_irq(CPUState *cs, int irq_num) {
+    if (!cs) {
+        fprintf(stderr, "raise_arm_irq: NULL CPUState\n");
+        return;
+    }
+
+    if (!object_dynamic_cast(OBJECT(cs), TYPE_ARM_CPU)) {
+        fprintf(stderr, "raise_arm_irq: not an ARM CPU\n");
+        return;
+    }
+
+    ARMCPU *cpu = ARM_CPU(cs);
+
+
+    if (!cpu->env.nvic) {
+        fprintf(stderr, "raise_arm_irq: NVIC not initialized\n");
+        return;
+    }
+
+	armv7m_nvic_set_pending(cpu->env.nvic, irq_num, false);
+
 }
 
 void armv7m_load_kernel(ARMCPU *cpu, const char *kernel_filename,

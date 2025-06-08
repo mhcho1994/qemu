@@ -223,6 +223,12 @@ static void gen_mem_cb(struct qemu_plugin_regular_cb *cb,
     tcg_temp_free_i32(cpu_index);
 }
 
+extern void update_reg(int reg, int target);
+void gen_inline_update_pc_cb(struct qemu_plugin_inline_cb *cb);
+void gen_inline_update_pc_cb(struct qemu_plugin_inline_cb *cb) {
+	update_reg(cb->imm, cb->entry.offset);
+}
+
 static void inject_cb(struct qemu_plugin_dyn_cb *cb)
 
 {
@@ -239,6 +245,9 @@ static void inject_cb(struct qemu_plugin_dyn_cb *cb)
     case PLUGIN_CB_INLINE_STORE_U64:
         gen_inline_store_u64_cb(&cb->inline_insn);
         break;
+	case PLUGIN_CB_INLINE_UPDATE_REG:
+		gen_inline_update_pc_cb(&cb->inline_insn);
+		break;
     default:
         g_assert_not_reached();
     }

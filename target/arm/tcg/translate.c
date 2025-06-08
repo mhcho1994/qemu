@@ -47,7 +47,7 @@
 /* These are TCG temporaries used only by the legacy iwMMXt decoder */
 static TCGv_i64 cpu_V0, cpu_V1, cpu_M0;
 /* These are TCG globals which alias CPUARMState fields */
-static TCGv_i32 cpu_R[16];
+TCGv_i32 cpu_R[16];
 TCGv_i32 cpu_CF, cpu_NF, cpu_VF, cpu_ZF;
 TCGv_i64 cpu_exclusive_addr;
 TCGv_i64 cpu_exclusive_val;
@@ -79,6 +79,16 @@ void arm_translate_init(void)
 
     a64_translate_init();
 }
+
+void update_reg(int reg, int target);
+void update_reg(int reg, int target) {
+    TCGv_i32 t= cpu_R[reg];
+    tcg_gen_mov_tl(t, tcg_constant_i32(target));
+	if (reg == 15) {
+    	tcg_gen_exit_tb(NULL, 0);
+	}
+}
+
 
 uint64_t asimd_imm_const(uint32_t imm, int cmode, int op)
 {
