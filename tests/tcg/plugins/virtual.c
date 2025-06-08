@@ -186,6 +186,58 @@ int main() {
 */
 
 
+#define MAX_BUFFER_SIZE 256
+
+typedef struct {
+    uint32_t address;
+    char mode; // 'r' or 'w'
+    uint32_t length;
+    uint8_t buffer[MAX_BUFFER_SIZE];
+} MemAccess;
+
+
+int parse_update_mem_arg(const char *input, MemAccess *out);
+int parse_update_mem_arg(const char *input, MemAccess *out) {
+    if (!input || !out) return -1;
+
+    // Temporary copy of input string for tokenizing
+	char *temp = malloc(strlen(input) + 1);
+	if (!temp) return -1;
+	strcpy(temp, input);
+
+
+    char *token = strtok(temp, ":");
+    if (!token) { free(temp); return -1;}
+    out->address = strtoul(token, NULL, 0); // parse address
+
+    token = strtok(NULL, ":");
+    if (!token || (token[0] != 'r' && token[0] != 'w')) return -1;
+    out->mode = token[0]; // parse mode
+
+    token = strtok(NULL, ":");
+    if (!token) { free(temp); return -1;}
+    out->length = strtoul(token, NULL, 0); // parse length
+    if (out->length > MAX_BUFFER_SIZE) return -1;
+
+    token = strtok(NULL, ":");
+    if (!token) { free(temp); return -1;}
+
+    // Now parse comma-separated bytes
+    uint32_t i = 0;
+    char *byte_str = strtok(token, ",");
+    while (byte_str && i < out->length) {
+        out->buffer[i++] = (uint8_t)strtoul(byte_str, NULL, 0);
+        byte_str = strtok(NULL, ",");
+    }
+
+    if (i != out->length) { printf("Invalid Argument \n"); free(temp); return -1;}
+
+	free(temp);
+    return 0; // success
+}
+
+
+
 QEMU_PLUGIN_EXPORT int qemu_plugin_version = QEMU_PLUGIN_VERSION;
 int counter;
 
@@ -196,10 +248,12 @@ int counter;
 static void raiseirq(unsigned int cpu_index, void *udata);
 static void updatepc(unsigned int cpu_index, void *udata);
 static void updatereg(unsigned int cpu_index, void *udata);
+static void updatemem(unsigned int cpu_index, void *udata);
 
 cb_entry_t cb_registry[] = {
     { "updatepc", updatepc },
 	{ "updatereg", updatereg},
+	{ "updatemem", updatemem},
     { "raiseirq", raiseirq },
 };
 
@@ -207,6 +261,19 @@ const size_t cb_registry_len = sizeof(cb_registry) / sizeof(cb_registry[0]);
 
 static void raiseirq(unsigned int cpu_index, void *udata){
 	qemu_plugin_raise_irq(15);
+}
+
+static void updatemem(unsigned int cpu_index, void *udata) {
+	const char *input = (const char *) udata;
+	MemAccess mem;
+
+    if (parse_update_mem_arg(input, &mem) == 0) {
+		if (mem.mode == 'r') {
+			qemu_plugin_read_memory(mem.address, mem.buffer, mem.length);
+		} else {
+			qemu_plugin_write_memory(mem.address, mem.buffer, mem.length);
+		}
+	}
 }
 static void updatepc(unsigned int cpu_index, void *udata)
 {
@@ -260,7 +327,7 @@ static void vcpu_tb_trans(qemu_plugin_id_t id, struct qemu_plugin_tb *tb)
 		rule_t  *rule; 
 		if (find_rule_by_address(qemu_plugin_insn_vaddr(insn), &rule)) {
 				qemu_plugin_register_vcpu_insn_exec_cb(
-                    insn, rule->func, QEMU_PLUGIN_CB_RW_REGS, NULL);
+                    insn, rule->func, QEMU_PLUGIN_CB_RW_REGS, rule->args);
 		}
 
 

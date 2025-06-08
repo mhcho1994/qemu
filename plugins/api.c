@@ -452,6 +452,20 @@ void qemu_plugin_set_register(uint8_t *mem_buf, int reg)
     gdb_write_register(current_cpu, mem_buf, reg);
 }
 
+int qemu_plugin_write_memory(unsigned long long addr, uint8_t *mem_buf, int len)
+{
+    g_assert(current_cpu);
+
+	return gdb_target_memory_rw_debug(current_cpu, addr, mem_buf, len, true);
+}
+
+int qemu_plugin_read_memory(unsigned long long addr, uint8_t *mem_buf, int len)
+{
+    g_assert(current_cpu);
+
+    return gdb_target_memory_rw_debug(current_cpu, addr, mem_buf, len, false);
+}
+
 
 bool qemu_plugin_read_memory_vaddr(uint64_t addr, GByteArray *data, size_t len)
 {

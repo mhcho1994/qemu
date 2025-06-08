@@ -46,6 +46,10 @@ void gdb_register_coprocessor(CPUState *cpu,
  */
 void gdb_unregister_coprocessor_all(CPUState *cpu);
 
+typedef uint64_t hwaddr;
+int gdb_target_memory_rw_debug(CPUState *cpu, hwaddr addr,
+                               uint8_t *buf, int len, bool is_write);
+
 /**
  * gdbserver_start: start the gdb server
  * @port_or_device: connection spec for gdb
