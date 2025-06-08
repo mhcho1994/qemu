@@ -610,7 +610,9 @@ void raise_irq(CPUState *cs, int irq_num) {
         return;
     }
 
+	bql_lock();
 	armv7m_nvic_set_pending(cpu->env.nvic, irq_num, false);
+	bql_unlock();
 
 }
 
