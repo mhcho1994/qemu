@@ -236,6 +236,50 @@ int parse_update_mem_arg(const char *input, MemAccess *out) {
     return 0; // success
 }
 
+unsigned long long* parse_addresses(const char *input, size_t *count);
+unsigned long long* parse_addresses(const char *input, size_t *count) {
+    // Make a copy of input so we don't modify the original
+    char *input_copy = strdup(input);
+    if (!input_copy) return NULL;
+
+    size_t capacity = 8;
+    *count = 0;
+    unsigned long long *addresses = malloc(capacity * sizeof(unsigned long long));
+    if (!addresses) {
+        free(input_copy);
+        return NULL;
+    }
+
+    char *token = strtok(input_copy, ",");
+    while (token) {
+        // Remove leading/trailing whitespace
+        while (*token == ' ' || *token == '\t') token++;
+        char *endptr;
+        unsigned long long addr = strtoull(token, &endptr, 0);
+        if (token == endptr) {
+            // Invalid conversion
+            free(addresses);
+            free(input_copy);
+            return NULL;
+        }
+
+        if (*count >= capacity) {
+            capacity *= 2;
+            addresses = realloc(addresses, capacity * sizeof(unsigned long long));
+            if (!addresses) {
+                free(input_copy);
+                return NULL;
+            }
+        }
+
+        addresses[(*count)++] = addr;
+        token = strtok(NULL, ",");
+    }
+
+    free(input_copy);
+    return addresses;
+}
+
 
 
 QEMU_PLUGIN_EXPORT int qemu_plugin_version = QEMU_PLUGIN_VERSION;
@@ -249,11 +293,13 @@ static void raiseirq(unsigned int cpu_index, void *udata);
 static void updatepc(unsigned int cpu_index, void *udata);
 static void updatereg(unsigned int cpu_index, void *udata);
 static void updatemem(unsigned int cpu_index, void *udata);
+static void randstate(unsigned int cpu_index, void *udata);
 
 cb_entry_t cb_registry[] = {
     { "updatepc", updatepc },
 	{ "updatereg", updatereg},
 	{ "updatemem", updatemem},
+	{ "randstate", randstate},
     { "raiseirq", raiseirq },
 };
 
@@ -274,6 +320,76 @@ static void updatemem(unsigned int cpu_index, void *udata) {
 			qemu_plugin_write_memory(mem.address, mem.buffer, mem.length);
 		}
 	}
+}
+
+#include <stdio.h>
+#include <stdlib.h>
+
+unsigned char get_random_byte(void);
+unsigned char get_random_byte(void) {
+	//This will make things linux specific, but lot of hardcoded things.
+    FILE *fp = fopen("/dev/urandom", "rb");
+    if (!fp) {
+        perror("fopen /dev/urandom");
+        exit(EXIT_FAILURE);
+    }
+
+    unsigned char byte;
+    size_t result = fread(&byte, 1, 1, fp);
+    fclose(fp);
+
+    if (result != 1) {
+        fprintf(stderr, "Failed to read from /dev/urandom\n");
+        exit(EXIT_FAILURE);
+    }
+
+    return byte;
+}
+uint32_t get_random_word(void);
+uint32_t get_random_word(void) {
+    //This will make things linux specific, but lot of hardcoded things.
+    FILE *fp = fopen("/dev/urandom", "rb");
+    if (!fp) {
+        perror("fopen /dev/urandom");
+        exit(EXIT_FAILURE);
+    }
+
+    uint32_t word;
+    size_t result = fread(&word, sizeof(uint32_t), 1, fp);
+    fclose(fp);
+
+    if (result != 1) {
+        fprintf(stderr, "Failed to read from /dev/urandom\n");
+        exit(EXIT_FAILURE);
+    }
+
+    return word;
+}
+
+
+static void randstate(unsigned int cpu_index, void *udata) {
+	const char *input = (const char *) udata;
+
+	size_t count = 0;
+	unsigned long long *addrs = parse_addresses(input, &count);
+	if (addrs) {
+        for (size_t i = 0; i < count; i++) {
+			if (addrs[i] < 100) {
+				uint32_t val = get_random_word();
+				//PC not supported 
+				if (addrs[i] != 15) {
+					qemu_plugin_set_register((uint8_t *)&val,addrs[i] );
+				}
+			} else {
+				uint8_t val = get_random_byte();
+				qemu_plugin_write_memory(addrs[i], &val, 1);
+			}
+        }
+        free(addrs);
+    } else {
+        printf("Failed to parse addresses.\n");
+    }
+
 }
 static void updatepc(unsigned int cpu_index, void *udata)
 {
