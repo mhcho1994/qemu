@@ -439,23 +439,7 @@ static void vcpu_tb_trans(qemu_plugin_id_t id, struct qemu_plugin_tb *tb)
     for (i = 0; i < n; i++) {
         struct qemu_plugin_insn *insn = qemu_plugin_tb_get_insn(tb, i);
 
-
-		rule_t  *rule; 
-		if (find_rule_by_address(qemu_plugin_insn_vaddr(insn), &rule)) {
-				qemu_plugin_register_vcpu_insn_exec_cb(
-                    insn, rule->func, QEMU_PLUGIN_CB_RW_REGS, rule->args);
-		}
-
-
-		AddressTuple * tuple = is_target_address(qemu_plugin_insn_vaddr(insn)); 
-		if (tuple) {
-				qemu_plugin_u64 entry;
-				// In TCG frontend it is already set, if you want to modify it you will have to 
-				// change CPSR. 
-				entry.offset = (tuple->anchor & ~(0x1));
-				qemu_plugin_register_vcpu_insn_exec_inline_per_vcpu(insn, QEMU_PLUGIN_INLINE_UPDATE_REG, entry, 15);
-		}
-
+		//Highest priority: Modifier
 		//void * handle= qemu_plugin_register_vcpu_insn_exec_inline_per_vcpu(insn,  QEMU_PLUGIN_CB_GEN_LABEL, NULL, 0);
 		size_t count = find_updates_for_address(qemu_plugin_insn_vaddr(insn), matches, MAX_MATCHES);
 		if (count > 0) {
@@ -484,6 +468,23 @@ static void vcpu_tb_trans(qemu_plugin_id_t id, struct qemu_plugin_tb *tb)
 
     	}
 		}
+
+		//Middle prioirity is Virtual instructions 
+		rule_t  *rule;
+        if (find_rule_by_address(qemu_plugin_insn_vaddr(insn), &rule)) {
+                qemu_plugin_register_vcpu_insn_exec_cb(
+                    insn, rule->func, QEMU_PLUGIN_CB_RW_REGS, rule->args);
+        }
+
+		//Lowest priority is detour
+		AddressTuple * tuple = is_target_address(qemu_plugin_insn_vaddr(insn));
+        if (tuple) {
+                qemu_plugin_u64 entry;
+                // In TCG frontend it is already set, if you want to modify it you will have to
+                // change CPSR.
+                entry.offset = (tuple->anchor & ~(0x1));
+                qemu_plugin_register_vcpu_insn_exec_inline_per_vcpu(insn, QEMU_PLUGIN_INLINE_UPDATE_REG, entry, 15);
+        }
     }
 }
 
