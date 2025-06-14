@@ -43,6 +43,115 @@ typedef struct {
     unsigned long value;
 } UpdateEntry;
 
+#define MAX_LISTS 100
+#define MAX_ENTRIES_PER_LIST 100
+#define LINE_BUFFER_SIZE 1024
+
+typedef struct {
+    uint32_t *buffer;  // Pointer to the buffer
+    uint16_t index;     // Current index into the buffer
+} Buffy;
+
+typedef struct {
+    uintptr_t address;
+    int reg; // "register" number (just a number)
+} LoggerEntry;
+
+typedef struct {
+    LoggerEntry entries[MAX_ENTRIES_PER_LIST];
+    size_t count;
+	Buffy log_buf;
+} AddressList;
+
+AddressList addressLists[MAX_LISTS];
+size_t listCount = 0;
+
+// Helper: Parse "0xADDR:REGISTER" format
+bool parse_entry(const char* token, LoggerEntry* entry);
+bool parse_entry(const char* token, LoggerEntry* entry) {
+    char* colonPos = strchr(token, ':');
+    if (!colonPos) return false;
+
+    *colonPos = '\0';
+    const char* addrPart = token;
+    const char* regPart = colonPos + 1;
+
+    // Parse address
+    uintptr_t addr = (uintptr_t)strtoull(addrPart, NULL, 0);
+
+    // Parse register (as a simple integer)
+    int regNum = atoi(regPart);
+
+    entry->address = addr;
+    entry->reg = regNum;
+    return true;
+}
+
+// Parse a single line into an AddressList
+void parse_logger(const char* line);
+void parse_logger(const char* line) {
+    if (listCount >= MAX_LISTS) {
+        fprintf(stderr, "Too many lists!\n");
+        return;
+    }
+
+    AddressList* list = &addressLists[listCount];
+    list->count = 0;
+
+    char* lineCopy = strdup(line);
+    if (!lineCopy) {
+        perror("strdup");
+        exit(EXIT_FAILURE);
+    }
+
+    char* token = strtok(lineCopy, ",\n\r");
+    while (token != NULL && list->count < MAX_ENTRIES_PER_LIST) {
+        while (*token == ' ' || *token == '\t') token++; // trim leading whitespace
+
+        LoggerEntry entry;
+        if (parse_entry(token, &entry)) {
+            list->entries[list->count++] = entry;
+        } else {
+            fprintf(stderr, "Invalid entry: %s\n", token);
+        }
+
+        token = strtok(NULL, ",\n\r");
+    }
+
+    free(lineCopy);
+    listCount++;
+}
+
+// Load logger configuration file
+void load_logger_config(const char* filename);
+void load_logger_config(const char* filename) {
+    FILE* file = fopen(filename, "r");
+    if (!file) {
+        perror("fopen");
+        exit(EXIT_FAILURE);
+    }
+
+    char buffer[LINE_BUFFER_SIZE];
+    while (fgets(buffer, sizeof(buffer), file)) {
+        parse_logger(buffer);
+    }
+
+    fclose(file);
+}
+
+// Check if address+register exists in any list
+bool address_in_any_list(uintptr_t addr, int reg);
+bool address_in_any_list(uintptr_t addr, int reg) {
+    for (size_t i = 0; i < listCount; i++) {
+        AddressList* list = &addressLists[i];
+        for (size_t j = 0; j < list->count; j++) {
+            if (list->entries[j].address == addr && list->entries[j].reg == reg) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
 rule_t rules[MAX_RULES];
 size_t rules_count = 0;
 
@@ -294,6 +403,7 @@ static void updatepc(unsigned int cpu_index, void *udata);
 static void updatereg(unsigned int cpu_index, void *udata);
 static void updatemem(unsigned int cpu_index, void *udata);
 static void randstate(unsigned int cpu_index, void *udata);
+static void dumplogger(unsigned int cpu_index, void *udata);
 
 cb_entry_t cb_registry[] = {
     { "updatepc", updatepc },
@@ -301,9 +411,63 @@ cb_entry_t cb_registry[] = {
 	{ "updatemem", updatemem},
 	{ "randstate", randstate},
     { "raiseirq", raiseirq },
+	{ "dumplog", dumplogger},
 };
 
+#define LOG_BUFFER_SIZE (UINT16_MAX + 1)
+
 const size_t cb_registry_len = sizeof(cb_registry) / sizeof(cb_registry[0]);
+void dump_log_buffer_to_file(const AddressList* list, const char* filename);
+void dump_log_buffer_to_file(const AddressList* list, const char* filename) {
+    FILE* file = fopen(filename, "wb");
+    if (!file) {
+        perror("fopen");
+        return;
+    }
+
+    // Write the entire buffer
+    size_t written = fwrite(list->log_buf.buffer, sizeof(uint32_t), (LOG_BUFFER_SIZE/sizeof(uint32_t)), file);
+    if (written != LOG_BUFFER_SIZE) {
+        fprintf(stderr, "Warning: Only wrote %zu words out of %u\n", written, LOG_BUFFER_SIZE);
+    }
+
+    fclose(file);
+}
+typedef struct {
+    int idx;
+    char file_name[256]; // Max file name size (adjust as needed)
+} FileEntry;
+
+bool parse_file_entry(const char* line, FileEntry* entry);
+bool parse_file_entry(const char* line, FileEntry* entry) {
+    char* colonPos = strchr(line, ':');
+    if (!colonPos) {
+        return false; // No colon found — invalid format
+    }
+
+    // Split into index and file_name parts
+    size_t idxLen = colonPos - line;
+    char idxStr[32]; // Enough for int
+    if (idxLen >= sizeof(idxStr)) return false; // Index too big to fit
+
+    strncpy(idxStr, line, idxLen);
+    idxStr[idxLen] = '\0';
+
+    // Parse integer index
+    entry->idx = atoi(idxStr);
+
+    // Copy file name part
+    strncpy(entry->file_name, colonPos + 1, sizeof(entry->file_name) - 1);
+    entry->file_name[sizeof(entry->file_name) - 1] = '\0'; // Ensure null-terminated
+
+    return true;
+}
+
+static void dumplogger(unsigned int cpu_index, void *udata) {
+	FileEntry entry;
+	parse_file_entry((const char*) udata, &entry);
+	dump_log_buffer_to_file(&addressLists[entry.idx], entry.file_name);
+}
 
 static void raiseirq(unsigned int cpu_index, void *udata){
 	qemu_plugin_raise_irq(15);
@@ -430,16 +594,61 @@ size_t find_updates_for_address(unsigned long addr,
 
 int inline_ins = 0;
 #define MAX_MATCHES 10
+
+
+typedef struct {
+    AddressList* list;
+    LoggerEntry* entry;
+} LookupResult;
+
+// Find an address in any list and return both the list and entry pointers
+LookupResult lookup_addr(uintptr_t addr);
+LookupResult lookup_addr(uintptr_t addr) {
+    LookupResult result = {0};
+
+    for (size_t i = 0; i < listCount; i++) {
+        AddressList* list = &addressLists[i];
+        for (size_t j = 0; j < list->count; j++) {
+            if (list->entries[j].address == addr) {
+                result.list = list;
+                result.entry = &list->entries[j];
+                return result; // First match returned
+            }
+        }
+    }
+
+    // Not found
+    result.list = NULL;
+    result.entry = NULL;
+    return result;
+}
+
 static void vcpu_tb_trans(qemu_plugin_id_t id, struct qemu_plugin_tb *tb)
 {
     size_t n = qemu_plugin_tb_n_insns(tb);
     size_t i;
 	UpdateEntry *matches[MAX_MATCHES];
 
+	printf("->Virtual Clock: %llu \n", (unsigned long long)qemu_plugin_get_virtual_timer());
+
     for (i = 0; i < n; i++) {
         struct qemu_plugin_insn *insn = qemu_plugin_tb_get_insn(tb, i);
 
-		//Highest priority: Modifier
+
+		//Highest priority: Logger
+		LookupResult ret = lookup_addr(qemu_plugin_insn_vaddr(insn));
+		if (ret.list) {
+			qemu_plugin_u64 entry_tmp;
+			if (!ret.list->log_buf.buffer) {
+					ret.list->log_buf.buffer = malloc(UINT16_MAX + 1);
+			}
+			entry_tmp.offset = (size_t)&ret.list->log_buf;
+			qemu_plugin_register_vcpu_insn_exec_inline_per_vcpu(insn, QEMU_PLUGIN_INLINE_LOG_REG, entry_tmp, ret.entry->reg);
+		}
+
+
+
+		//Second to Highest priority: Modifier
 		//void * handle= qemu_plugin_register_vcpu_insn_exec_inline_per_vcpu(insn,  QEMU_PLUGIN_CB_GEN_LABEL, NULL, 0);
 		size_t count = find_updates_for_address(qemu_plugin_insn_vaddr(insn), matches, MAX_MATCHES);
 		if (count > 0) {
@@ -600,6 +809,10 @@ QEMU_PLUGIN_EXPORT int qemu_plugin_install(qemu_plugin_id_t id,
 
 	filename = get_arg("virtual", argc, argv);
 	parse_rules_file(filename);
+
+
+	filename = get_arg("logger", argc, argv);
+	load_logger_config(filename);
 
 
 

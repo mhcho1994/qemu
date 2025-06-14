@@ -1,1 +1,1 @@
-0x106cc raiseirq 0x15
+0xb7b6 dumplog 0:/home/faculty/abk6349/data/qemu/build//ws/log_out.bin

@@ -28,6 +28,8 @@
 #include "cpregs.h"
 #include "exec/helper-proto.h"
 #include "exec/target_page.h"
+#include "tcg/tcg.h"
+#include "tcg/tcg-temp-internal.h"
 
 #define HELPER_H "helper.h"
 #include "exec/helper-info.c.inc"
@@ -87,6 +89,35 @@ void update_reg(int reg, int target) {
 	if (reg == 15) {
     	tcg_gen_exit_tb(NULL, 0);
 	}
+}
+void log_reg(uint8_t * buffer, uint16_t * index, int reg);
+void log_reg(uint8_t * buffer, uint16_t * index, int reg) {
+    TCGv_i32 t= cpu_R[reg];
+	
+	TCGv_ptr ptr = tcg_constant_ptr((intptr_t)buffer);
+    TCGv_ptr index_t =tcg_constant_ptr((intptr_t)index);
+	TCGv_ptr tmp_ptr = tcg_temp_new_ptr();
+
+    TCGv_i32 index_val_t = tcg_temp_ebb_new_i32();
+    tcg_gen_ld16u_i32(index_val_t, index_t, 0);
+
+    //temp has index now
+	tcg_gen_ext_i32_ptr(tmp_ptr, index_val_t);     
+	tcg_gen_add_ptr(tmp_ptr, ptr, tmp_ptr);  
+
+	//tmp_ptr now points to the next slot
+    tcg_gen_st_i32(t, tmp_ptr, 0);
+
+	//Logged, lets increment pointer for next guy
+    tcg_gen_addi_i32(index_val_t, index_val_t, 4);
+    tcg_gen_st16_i32(index_val_t, index_t, 0);
+
+	//Updated
+
+    // Free the temporaries
+    tcg_temp_free_ptr(ptr);
+    tcg_temp_free_ptr(index_t);
+	tcg_temp_free_ptr(tmp_ptr);
 }
 
 #if 0

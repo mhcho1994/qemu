@@ -229,6 +229,19 @@ void gen_inline_update_pc_cb(struct qemu_plugin_inline_cb *cb) {
 	update_reg(cb->imm, cb->entry.offset);
 }
 
+//TODO:
+typedef struct {
+    uint8_t *buffer;  // Pointer to the buffer
+    uint16_t index;     // Current index into the buffer
+} Buffy;
+
+extern void log_reg(uint8_t * buffer, uint16_t * index, int reg);
+void gen_inline_log_reg_cb(struct qemu_plugin_inline_cb *cb);
+void gen_inline_log_reg_cb(struct qemu_plugin_inline_cb *cb) {
+	Buffy * buf = (Buffy*)(cb->entry.offset);
+	log_reg(buf->buffer, &buf->index, cb->imm);
+}
+
 extern void *gpa2hva(MemoryRegion **p_mr, hwaddr addr, uint64_t size, Error **errp);
 unsigned long long get_gpa2hva(unsigned long long addr);
 unsigned long long get_gpa2hva(unsigned long long addr) {
@@ -278,6 +291,10 @@ static void inject_cb(struct qemu_plugin_dyn_cb *cb)
 		break;
 	case PLUGIN_CB_INLINE_UPDATE_MEM:
 		gen_inline_update_mem_cb(&cb->inline_insn);
+		break;
+
+	case PLUGIN_CB_INLINE_LOG_REG:
+		gen_inline_log_reg_cb(&cb->inline_insn);
 		break;
     default:
         g_assert_not_reached();

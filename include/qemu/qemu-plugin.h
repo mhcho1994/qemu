@@ -410,6 +410,7 @@ enum qemu_plugin_op {
     QEMU_PLUGIN_INLINE_STORE_U64,
 	QEMU_PLUGIN_INLINE_UPDATE_REG,
 	QEMU_PLUGIN_INLINE_UPDATE_MEM,
+	QEMU_PLUGIN_INLINE_LOG_REG,
 };
 
 /**
@@ -911,6 +912,9 @@ typedef struct {
  */
 QEMU_PLUGIN_API
 GArray *qemu_plugin_get_registers(void);
+
+QEMU_PLUGIN_API
+int64_t qemu_plugin_get_virtual_timer(void);
 
 /**
  * qemu_plugin_read_memory_vaddr() - read from memory using a virtual address

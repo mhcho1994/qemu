@@ -438,6 +438,11 @@ GArray *qemu_plugin_get_registers(void)
     return create_register_handles(regs);
 }
 
+
+int64_t qemu_plugin_get_virtual_timer(void) {
+	return qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+}
+
 extern void raise_irq(CPUState *cs, int irq_num);
 void qemu_plugin_raise_irq(int irq) {
 	g_assert(current_cpu);

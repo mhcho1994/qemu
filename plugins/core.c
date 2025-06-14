@@ -342,6 +342,8 @@ static enum plugin_dyn_cb_type op_to_cb_type(enum qemu_plugin_op op)
 		return PLUGIN_CB_INLINE_UPDATE_REG;
 	case QEMU_PLUGIN_INLINE_UPDATE_MEM:
 		return PLUGIN_CB_INLINE_UPDATE_MEM;
+	case QEMU_PLUGIN_INLINE_LOG_REG:
+        return PLUGIN_CB_INLINE_LOG_REG;
     default:
         g_assert_not_reached();
     }
