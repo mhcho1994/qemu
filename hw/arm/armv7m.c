@@ -615,6 +615,38 @@ void raise_irq(CPUState *cs, int irq_num) {
 	bql_unlock();
 
 }
+void armv7m_load_elf(CPUState *cs,const char *kernel_filename);
+void armv7m_load_elf(CPUState *cs,const char *kernel_filename) {
+	ssize_t image_size;
+    uint64_t entry;
+    AddressSpace *as;
+    int asidx;
+    ARMCPU *cpu = ARM_CPU(cs);
+	hwaddr mem_base = 0x20800000;
+	int mem_size = 0x1E0E0000;
+
+    if (arm_feature(&cpu->env, ARM_FEATURE_EL3)) {
+        asidx = ARMASIdx_S;
+    } else {
+        asidx = ARMASIdx_NS;
+    }
+    as = cpu_get_address_space(cs, asidx);
+
+    if (kernel_filename) {
+        image_size = load_elf_ram_sym(kernel_filename, NULL, NULL, NULL,
+                                 &entry, NULL, NULL,
+                                 NULL, ELFDATA2LSB, EM_ARM, 1, 0, as, false, NULL);
+        if (image_size < 0) {
+            image_size = load_image_targphys_as(kernel_filename, mem_base,
+                                                mem_size, as);
+        }
+        if (image_size < 0) {
+            error_report("Could not load kernel '%s'", kernel_filename);
+            exit(1);
+        }
+    }
+
+}
 
 void armv7m_load_kernel(ARMCPU *cpu, const char *kernel_filename,
                         hwaddr mem_base, int mem_size)

@@ -82,10 +82,45 @@ void arm_translate_init(void)
     a64_translate_init();
 }
 
+extern void *gpa2hva(MemoryRegion **p_mr, hwaddr addr, uint64_t size, Error **errp);
+unsigned long long  intern_gpa2hva(unsigned long long  addr);
+unsigned long long  intern_gpa2hva(unsigned long long  addr){
+    Error *local_err = NULL;
+    MemoryRegion *mr = NULL;
+    void *ptr;
+
+    ptr = gpa2hva(&mr, addr, 1, &local_err);
+    return (unsigned long long) ptr;
+}
+
 void update_reg(int reg, int target);
 void update_reg(int reg, int target) {
+
+	if (reg ==-1) {
+			uint32_t * context = (uint32_t *)intern_gpa2hva(0x20800000);
+			TCGv_i32 reg_val_t = tcg_temp_ebb_new_i32();
+			for (int i =0; i < 16; i++, context++) {
+                    TCGv_i32 r= cpu_R[i];
+                    TCGv_ptr ptr = tcg_constant_ptr((intptr_t)context);
+					tcg_gen_ld_i32(reg_val_t, ptr, 0);
+					tcg_gen_mov_tl(r, reg_val_t);
+            }
+			tcg_gen_exit_tb(NULL, 0);
+			return;
+	}
     TCGv_i32 t= cpu_R[reg];
+	//TODO: Fix this we shouldn't hardcode, we should expose this 
+	// as the end of ram.
+	if (reg == 15 && target > 0x20800000) {
+			uint32_t * context = (uint32_t *)intern_gpa2hva(0x20800000);
+			for (int i =0; i < 16; i++, context++) {
+					TCGv_i32 r= cpu_R[i];
+					TCGv_ptr ptr = tcg_constant_ptr((intptr_t)context);
+					tcg_gen_st_i32(r, ptr, 0);
+			}
+	}
     tcg_gen_mov_tl(t, tcg_constant_i32(target));
+
 	if (reg == 15) {
     	tcg_gen_exit_tb(NULL, 0);
 	}

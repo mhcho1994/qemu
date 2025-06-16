@@ -46,6 +46,7 @@
 #include "exec/translator.h"
 #include "disas/disas.h"
 #include "plugin.h"
+#include "elf.h"
 
 /* Uninstall and Reset handlers */
 
@@ -193,6 +194,12 @@ void qemu_plugin_register_vcpu_mem_inline_per_vcpu(
     plugin_register_inline_op_on_entry(&insn->mem_cbs, rw, op, entry, imm);
 }
 
+extern void armv7m_load_elf(CPUState *cs,const char *kernel_filename);
+void qemu_plugin_load_elf(char * elf) {
+	g_assert(current_cpu);
+	armv7m_load_elf(current_cpu, elf);
+}
+
 void qemu_plugin_register_vcpu_tb_trans_cb(qemu_plugin_id_t id,
                                            qemu_plugin_vcpu_tb_trans_cb_t cb)
 {
@@ -246,6 +253,16 @@ qemu_plugin_tb_get_insn(const struct qemu_plugin_tb *tb, size_t idx)
         return NULL;
     }
     return g_ptr_array_index(tb->insns, idx);
+}
+
+extern void *gpa2hva(MemoryRegion **p_mr, hwaddr addr, uint64_t size, Error **errp);
+unsigned long long  qemu_plugin_gpa2hva(unsigned long long  addr){
+	Error *local_err = NULL;
+    MemoryRegion *mr = NULL;
+    void *ptr;
+
+    ptr = gpa2hva(&mr, addr, 1, &local_err);
+    return (unsigned long long) ptr;
 }
 
 /*

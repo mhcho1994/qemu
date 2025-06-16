@@ -80,6 +80,7 @@ struct MPS2MachineState {
     MemoryRegion blockram_m2;
     MemoryRegion blockram_m3;
     MemoryRegion sram;
+	MemoryRegion fakeram;
     /* FPGA APB subsystem */
     MPS2SCC scc;
     MPS2FPGAIO fpgaio;
@@ -197,6 +198,8 @@ static void mps2_common_init(MachineState *machine)
                        &mms->blockram, 0x01008000);
         make_ram_alias(&mms->blockram_m3, "mps.blockram_m3",
                        &mms->blockram, 0x0100c000);
+
+		make_ram(&mms->fakeram, "fakeram", 0x20800000, 0x1E800000);
     }
 
     switch (mmc->fpga_type) {

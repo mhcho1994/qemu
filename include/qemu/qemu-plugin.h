@@ -357,6 +357,9 @@ QEMU_PLUGIN_API
 void qemu_plugin_register_vcpu_tb_trans_cb(qemu_plugin_id_t id,
                                            qemu_plugin_vcpu_tb_trans_cb_t cb);
 
+QEMU_PLUGIN_API
+void qemu_plugin_load_elf(char * elf);
+
 /**
  * qemu_plugin_register_vcpu_tb_exec_cb() - register execution callback
  * @tb: the opaque qemu_plugin_tb handle for the translation
@@ -519,6 +522,9 @@ uint64_t qemu_plugin_tb_vaddr(const struct qemu_plugin_tb *tb);
 QEMU_PLUGIN_API
 struct qemu_plugin_insn *
 qemu_plugin_tb_get_insn(const struct qemu_plugin_tb *tb, size_t idx);
+
+QEMU_PLUGIN_API
+unsigned long long  qemu_plugin_gpa2hva(unsigned long long  addr);
 
 /**
  * qemu_plugin_insn_data() - copy instruction data

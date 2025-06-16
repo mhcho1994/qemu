@@ -43,6 +43,8 @@ typedef struct {
     unsigned long value;
 } UpdateEntry;
 
+static const char * runtime;
+
 #define MAX_LISTS 100
 #define MAX_ENTRIES_PER_LIST 100
 #define LINE_BUFFER_SIZE 1024
@@ -404,6 +406,8 @@ static void updatereg(unsigned int cpu_index, void *udata);
 static void updatemem(unsigned int cpu_index, void *udata);
 static void randstate(unsigned int cpu_index, void *udata);
 static void dumplogger(unsigned int cpu_index, void *udata);
+static void dyninst(unsigned int cpu_index, void *udata);
+static void dyninst_lib(unsigned int cpu_index, void *udata);
 
 cb_entry_t cb_registry[] = {
     { "updatepc", updatepc },
@@ -412,7 +416,118 @@ cb_entry_t cb_registry[] = {
 	{ "randstate", randstate},
     { "raiseirq", raiseirq },
 	{ "dumplog", dumplogger},
+	{ "dyninst", dyninst},
+	{ "dyninst_lib", dyninst_lib},
 };
+
+#define MAX_FILENAME_LEN 256
+
+typedef struct {
+    uint64_t addr;
+    char filename[MAX_FILENAME_LEN];  // Fixed-size buffer
+} AddrFilePair;
+
+static void dyninst_lib(unsigned int cpu_index, void *udata) {
+	qemu_plugin_load_elf((char *) udata);
+}
+
+
+AddrFilePair parse_addr_file(const char *input);
+AddrFilePair parse_addr_file(const char *input) {
+    AddrFilePair result = {0, {0}};
+
+    const char *colon = strchr(input, ':');
+    if (!colon) {
+        fprintf(stderr, "Invalid format: no ':' found.\n");
+        return result;
+    }
+
+    // Parse address part
+    char addr_str[32] = {0}; // Enough for 64-bit address string
+    size_t addr_len = colon - input;
+
+    if (addr_len >= sizeof(addr_str)) {
+        fprintf(stderr, "Address string too long.\n");
+        return result;
+    }
+
+    strncpy(addr_str, input, addr_len);
+    addr_str[addr_len] = '\0';
+
+    result.addr = strtoull(addr_str, NULL, 0); // auto-detect 0x
+
+    // Copy filename part into fixed buffer
+    const char *filename = colon + 1;
+
+    if (strlen(filename) >= MAX_FILENAME_LEN) {
+        fprintf(stderr, "Filename too long. Truncated.\n");
+        strncpy(result.filename, filename, MAX_FILENAME_LEN - 1);
+        result.filename[MAX_FILENAME_LEN - 1] = '\0'; // Null-terminate
+    } else {
+        strcpy(result.filename, filename);
+    }
+
+    return result;
+}
+
+// Reads entire file into a buffer.
+// Returns pointer to buffer and sets *length to file size.
+// Returns NULL on error.
+void* read_file(const char *filename, size_t *length);
+void* read_file(const char *filename, size_t *length) {
+    FILE *file = fopen(filename, "rb");
+    if (!file) {
+        perror("Error opening file");
+        return NULL;
+    }
+
+    // Seek to end to find file size
+    if (fseek(file, 0, SEEK_END) != 0) {
+        perror("Error seeking file");
+        fclose(file);
+        return NULL;
+    }
+
+    long file_size = ftell(file);
+    if (file_size < 0) {
+        perror("Error telling file position");
+        fclose(file);
+        return NULL;
+    }
+    rewind(file); // Go back to start
+
+    // Allocate buffer
+    void *buffer = malloc(file_size);
+    if (!buffer) {
+        perror("Memory allocation failed");
+        fclose(file);
+        return NULL;
+    }
+
+    // Read entire file into buffer
+    size_t read_size = fread(buffer, 1, file_size, file);
+    if (read_size != file_size) {
+        perror("Error reading file");
+        free(buffer);
+        fclose(file);
+        return NULL;
+    }
+
+    fclose(file);
+    *length = file_size; // Return size
+    return buffer;
+}
+
+void dyninst(unsigned int cpu_index, void *udata) {
+	AddrFilePair parsed = parse_addr_file((char *)udata);
+	
+	size_t file_len = 0;
+	void *file_buf = read_file(parsed.filename, &file_len);
+	if (file_buf) {
+		qemu_plugin_write_memory(parsed.addr, file_buf, file_len);
+		free(file_buf);
+	}
+}
 
 #define LOG_BUFFER_SIZE (UINT16_MAX + 1)
 
@@ -622,9 +737,13 @@ LookupResult lookup_addr(uintptr_t addr) {
     result.entry = NULL;
     return result;
 }
-
+static int init = 0;
 static void vcpu_tb_trans(qemu_plugin_id_t id, struct qemu_plugin_tb *tb)
 {
+	if (runtime && !init) {
+			qemu_plugin_load_elf((char *)runtime);
+			init = 1;
+	}
     size_t n = qemu_plugin_tb_n_insns(tb);
     size_t i;
 	UpdateEntry *matches[MAX_MATCHES];
@@ -633,6 +752,13 @@ static void vcpu_tb_trans(qemu_plugin_id_t id, struct qemu_plugin_tb *tb)
 
     for (i = 0; i < n; i++) {
         struct qemu_plugin_insn *insn = qemu_plugin_tb_get_insn(tb, i);
+
+		if (qemu_plugin_insn_vaddr(insn) == 0x20800050) {
+				//Magic instruction
+				qemu_plugin_u64 entry_tmp;
+				qemu_plugin_register_vcpu_insn_exec_inline_per_vcpu(insn, QEMU_PLUGIN_INLINE_UPDATE_REG, entry_tmp, -1);
+				return;
+		}
 
 
 		//Highest priority: Logger
@@ -813,6 +939,9 @@ QEMU_PLUGIN_EXPORT int qemu_plugin_install(qemu_plugin_id_t id,
 
 	filename = get_arg("logger", argc, argv);
 	load_logger_config(filename);
+
+	filename = get_arg("monitor", argc, argv);
+	runtime = filename; // Lazy Init
 
 
 
