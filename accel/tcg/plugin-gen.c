@@ -223,10 +223,65 @@ static void gen_mem_cb(struct qemu_plugin_regular_cb *cb,
     tcg_temp_free_i32(cpu_index);
 }
 
+typedef enum {
+    VALUE_IMMEDIATE, // existing: value is immediate
+    VALUE_REGISTER,  // new: value comes from another register (e.g., r3)
+    VALUE_DEREF      // new: value is loaded from the memory address held in r3
+} ValueType;
+
+typedef enum {
+    TARGET_REGISTER,
+    TARGET_MEMORY,
+	TARGET_DEREF
+} TargetType;
+
+typedef struct {
+    unsigned long update_point;
+    TargetType type; // TARGET_REGISTER or TARGET_MEMORY
+
+    union {
+        int reg_num;          // if TARGET_REGISTER
+        unsigned long addr;   // if TARGET_MEMORY
+    } target;
+
+    ValueType value_type;
+
+    union {
+        unsigned long imm; // VALUE_IMMEDIATE
+        int reg_num;       // VALUE_REGISTER and VALUE_DEREF (source register)
+    } value;
+} UpdateEntry;
 extern void update_reg(int reg, int target);
+
+extern void update_reg_reg(int reg, int source);
+extern void load_reg_from_mem(int reg, int source);
+extern void store_reg_to_mem(int reg, int destination);
+extern void return_from_runtime(void );
 void gen_inline_update_pc_cb(struct qemu_plugin_inline_cb *cb);
 void gen_inline_update_pc_cb(struct qemu_plugin_inline_cb *cb) {
-	update_reg(cb->imm, cb->entry.offset);
+	UpdateEntry * entry = cb->entry.data;
+	if (entry==NULL) {
+			//This si reutrn form runtime
+			return_from_runtime();
+			return;
+	} 
+	switch (entry->value_type) {
+ 	   case VALUE_IMMEDIATE:
+			update_reg(entry->target.reg_num, entry->value.imm);
+        	break;
+	    case VALUE_REGISTER:
+			if (entry->type == TARGET_DEREF) {
+				store_reg_to_mem(entry->value.reg_num, entry->target.reg_num);
+			} else {
+				update_reg_reg(entry->target.reg_num, entry->value.reg_num);
+			}
+        	break;
+	    case VALUE_DEREF:
+			if (entry->type == TARGET_REGISTER) {
+				load_reg_from_mem(entry->target.reg_num, entry->value.reg_num);
+			}
+        	break;
+	}
 }
 
 //TODO:

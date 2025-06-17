@@ -297,6 +297,21 @@ void HELPER(setend)(CPUARMState *env)
     arm_rebuild_hflags(env);
 }
 
+// Helper to load 32-bit value from guest physical address in Cortex-M (flat memory)
+uint32_t HELPER(cortexm_ld)(CPUARMState *env, void * addr)
+{
+    // Direct physical memory load (no MMU)
+    //return (uint32_t)(uintptr_t)addr; 
+	return cpu_ldl_data(env, (unsigned int) (uintptr_t)addr);
+}
+
+void HELPER(cortexm_st)(CPUARMState *env, void * addr, uint32_t val) {
+    // Possibly do address checks, MPU etc here
+
+    // Actually perform the memory write (little-endian 32-bit store):
+    cpu_stl_data(env, (unsigned int) (uintptr_t)addr, val);
+}
+
 void HELPER(check_bxj_trap)(CPUARMState *env, uint32_t rm)
 {
     /*

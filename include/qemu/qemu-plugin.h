@@ -262,6 +262,7 @@ struct qemu_plugin_scoreboard;
 typedef struct {
     struct qemu_plugin_scoreboard *score;
     size_t offset;
+	void * data;
 } qemu_plugin_u64;
 
 /**

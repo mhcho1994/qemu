@@ -4433,6 +4433,7 @@ static void omap_cachemaint_write(CPUARMState *env, const ARMCPRegInfo *ri,
     env->cp15.c15_i_min = 0xff0;
 }
 
+
 static const ARMCPRegInfo omap_cp_reginfo[] = {
     { .name = "DFSR", .cp = 15, .crn = 5, .crm = CP_ANY,
       .opc1 = CP_ANY, .opc2 = CP_ANY, .access = PL1_RW, .type = ARM_CP_OVERRIDE,

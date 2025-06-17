@@ -29,18 +29,32 @@ int isdigit(int c);
 #define MAX_RULES 256
 
 typedef enum {
+    VALUE_IMMEDIATE, // existing: value is immediate
+    VALUE_REGISTER,  // new: value comes from another register (e.g., r3)
+    VALUE_DEREF      // new: value is loaded from the memory address held in r3
+} ValueType;
+
+typedef enum {
     TARGET_REGISTER,
-    TARGET_MEMORY
+    TARGET_MEMORY,
+	TARGET_DEREF
 } TargetType;
 
 typedef struct {
     unsigned long update_point;
-    TargetType type;
+    TargetType type; // TARGET_REGISTER or TARGET_MEMORY
+
     union {
-        int reg_num;
-        unsigned long addr;
+        int reg_num;          // if TARGET_REGISTER
+        unsigned long addr;   // if TARGET_MEMORY
     } target;
-    unsigned long value;
+
+    ValueType value_type;
+
+    union {
+        unsigned long imm; // VALUE_IMMEDIATE
+        int reg_num;       // VALUE_REGISTER and VALUE_DEREF (source register)
+    } value;
 } UpdateEntry;
 
 static const char * runtime;
@@ -165,28 +179,78 @@ size_t update_entry_count = 0;
 
 // Helper to parse a single line
 static int parse_update_line(const char *line, UpdateEntry *entry);
-static int parse_update_line(const char *line, UpdateEntry *entry) {
-    char target_str[32];
+int parse_update_line(const char *line, UpdateEntry *entry) {
+    char buf[128];
+    char *token;
+    char *endptr;
 
-    if (sscanf(line, "%lx %31s %lx",
-               &entry->update_point,
-               target_str,
-               &entry->value) != 3) {
-        return 0;
+    strncpy(buf, line, sizeof(buf));
+    buf[sizeof(buf) - 1] = '\0'; // Ensure null termination
+
+    // First token: update_point
+    token = strtok(buf, " \t");
+    if (!token) return -1;
+    entry->update_point = strtoul(token, &endptr, 0);
+    if (*endptr != '\0') return -1;
+
+    // Second token: target (rX, [rX] or 0xADDRESS)
+	token = strtok(NULL, " \t");
+    if (!token) return -1;
+	if (token[0] == 'r') {
+    entry->type = TARGET_REGISTER;
+    entry->target.reg_num = strtoul(token + 1, &endptr, 0);
+    if (*endptr != '\0') return -1;
+	} else if (token[0] == '[' && token[strlen(token) - 1] == ']') {
+    // Target is [rX] dereference
+    token[strlen(token) - 1] = '\0'; // Remove trailing ']'
+    if (token[1] != 'r') {
+        fprintf(stderr, "Invalid target deref syntax: %s\n", token);
+        return -1;
     }
+    entry->type = TARGET_DEREF;
+    entry->target.reg_num = strtoul(token + 2, &endptr, 0); // skip [r
+    if (*endptr != '\0') return -1;
+	} else if (strncmp(token, "0x", 2) == 0) {
+    entry->type = TARGET_MEMORY;
+    entry->target.addr = strtoul(token, &endptr, 0);
+    if (*endptr != '\0') return -1;
+	} else {
+    fprintf(stderr, "Invalid target: %s\n", token);
+    return -1;
+	}
 
-    if (target_str[0] == 'r' && isdigit(target_str[1])) {
-        entry->type = TARGET_REGISTER;
-        entry->target.reg_num = atoi(target_str + 1);
-    } else if (strncmp(target_str, "0x", 2) == 0) {
-        entry->type = TARGET_MEMORY;
-        entry->target.addr = strtoul(target_str, NULL, 16);
+
+    // Third token: value (immediate, register, or dereference)
+    token = strtok(NULL, " \t");
+    if (!token) return -1;
+
+    if (token[0] == 'r') {
+        // Source is a register value
+        entry->value_type = VALUE_REGISTER;
+        entry->value.reg_num = strtoul(token + 1, &endptr, 0);
+        if (*endptr != '\0') return -1;
+    } else if (token[0] == '[' && token[strlen(token) - 1] == ']') {
+        // Source is [rX] dereference
+        token[strlen(token) - 1] = '\0'; // strip trailing ']'
+        if (token[1] != 'r') {
+            fprintf(stderr, "Invalid dereference syntax: %s\n", token);
+            return -1;
+        }
+        entry->value_type = VALUE_DEREF;
+        entry->value.reg_num = strtoul(token + 2, &endptr, 0); // skip [r
+        if (*endptr != '\0') return -1;
     } else {
-        return 0;
+        // Must be an immediate
+        entry->value_type = VALUE_IMMEDIATE;
+        entry->value.imm = strtoul(token, &endptr, 0);
+        if (*endptr != '\0') return -1;
     }
 
-    return 1;
+    return 0;
 }
+
+
+
 
 // Function to load all updates from a file into the global array
 int load_update_entries(const char *filename);
@@ -209,7 +273,7 @@ int load_update_entries(const char *filename) {
             return 0;
         }
 
-        if (parse_update_line(line, &update_entries[update_entry_count])) {
+        if (parse_update_line(line, &update_entries[update_entry_count]) == 0) {
             update_entry_count++;
         } else {
             fprintf(stderr, "Error parsing line: %s\n", line);
@@ -218,21 +282,6 @@ int load_update_entries(const char *filename) {
 
     fclose(f);
     return 1;
-}
-
-// Optional debug printer
-void print_all_updates(void);
-void print_all_updates(void) {
-    for (size_t i = 0; i < update_entry_count; ++i) {
-        UpdateEntry *e = &update_entries[i];
-        printf("Update Point: 0x%lx, ", e->update_point);
-        if (e->type == TARGET_REGISTER) {
-            printf("Register: r%d, ", e->target.reg_num);
-        } else {
-            printf("Memory Addr: 0x%lx, ", e->target.addr);
-        }
-        printf("Value: 0x%lx\n", e->value);
-    }
 }
 
 #define MAX_TUPLES 1000
@@ -756,6 +805,9 @@ static void vcpu_tb_trans(qemu_plugin_id_t id, struct qemu_plugin_tb *tb)
 		if (qemu_plugin_insn_vaddr(insn) == 0x20800050) {
 				//Magic instruction
 				qemu_plugin_u64 entry_tmp;
+                // In TCG frontend it is already set, if you want to modify it you will have to
+                // change CPSR.
+                entry_tmp.data = NULL;
 				qemu_plugin_register_vcpu_insn_exec_inline_per_vcpu(insn, QEMU_PLUGIN_INLINE_UPDATE_REG, entry_tmp, -1);
 				return;
 		}
@@ -782,24 +834,23 @@ static void vcpu_tb_trans(qemu_plugin_id_t id, struct qemu_plugin_tb *tb)
 			UpdateEntry *e = matches[match_idx];
 
 			printf("  Update Point: 0x%lx, ", e->update_point);
-	        if (e->type == TARGET_REGISTER) {
+	        if (e->type == TARGET_REGISTER || e->type == TARGET_DEREF) {
     	        printf("Target: r%d, ", e->target.reg_num);
 				qemu_plugin_u64 entry;
                 // In TCG frontend it is already set, if you want to modify it you will have to
                 // change CPSR.
-                entry.offset = (e->value);
+                entry.offset = (size_t)(e->value.imm);
+				entry.data = (void *)e;
                 qemu_plugin_register_vcpu_insn_exec_inline_per_vcpu(insn, QEMU_PLUGIN_INLINE_UPDATE_REG, entry, e->target.reg_num);
 	        } else if (e->type == TARGET_MEMORY) {
 				printf("Target: r%d, ", e->target.reg_num);
                 qemu_plugin_u64 entry;
                 // In TCG frontend it is already set, if you want to modify it you will have to
                 // change CPSR.
-                entry.offset = (e->value);
+                entry.offset = (size_t)(e->value.imm);
                 qemu_plugin_register_vcpu_insn_exec_inline_per_vcpu(insn, QEMU_PLUGIN_INLINE_UPDATE_MEM, entry, e->target.addr);
     	        printf("Target: 0x%lx, ", e->target.addr);
        		}
-
-        printf("Value: 0x%lx\n", e->value);
 
     	}
 		}

@@ -93,21 +93,98 @@ unsigned long long  intern_gpa2hva(unsigned long long  addr){
     return (unsigned long long) ptr;
 }
 
-void update_reg(int reg, int target);
-void update_reg(int reg, int target) {
+void update_reg_reg(int reg, int source);
+void update_reg_reg(int reg, int source) {
+	TCGv_i32 t= cpu_R[reg];
+	TCGv_i32 s= cpu_R[source];
+    //TODO: Fix this we shouldn't hardcode, we should expose this 
+    // as the end of ram.
+	if (reg == 15) {
+		//make sure LSB is zero.
+		TCGv_i32 masked = tcg_temp_new_i32();
+	    tcg_gen_andi_i32(masked, s, ~1);  // mask LSB to 0
+	    tcg_gen_mov_i32(t, masked);       // move to target temp t
+	    tcg_temp_free_i32(masked);
+		tcg_gen_exit_tb(NULL, 0);
+	} else {
+		tcg_gen_mov_tl(t, s);
+	}
+}
 
-	if (reg ==-1) {
-			uint32_t * context = (uint32_t *)intern_gpa2hva(0x20800000);
-			TCGv_i32 reg_val_t = tcg_temp_ebb_new_i32();
-			for (int i =0; i < 16; i++, context++) {
+#if 0
+void load_reg_from_mem(int reg, int source);
+void load_reg_from_mem(int reg, int source) {
+ //   TCGv_i32 addr = cpu_R[source]; // address to load from
+    TCGv_i32 tmp = tcg_temp_new_i32(); // temp to receive the loaded value
+
+ //   int mem_index = arm_cpu_mmu_index(current_cpu, true); // true for load
+
+//    tcg_gen_qemu_ld_i32(tmp, addr, mem_index, MO_TE); // load into temp
+//    tcg_gen_mov_i32(cpu_R[reg], tmp);                 // move temp to target reg
+
+    tcg_temp_free_i32(tmp); // free the temp register
+
+    if (reg == 15) { // PC?
+        tcg_gen_exit_tb(NULL, 0);
+    }
+}
+
+#endif 
+
+void load_reg_from_mem(int reg, int source);
+	void load_reg_from_mem(int reg, int source) {
+    TCGv_i32 tmp = tcg_temp_new_i32();
+    // Convert cpu_R[source] (TCGv_i32) to TCGv_ptr
+    TCGv_ptr addr_ptr = tcg_temp_new_ptr();
+
+    // Move 32-bit reg value (address) to ptr temp
+    tcg_gen_ext_i32_ptr(addr_ptr, cpu_R[source]);
+
+    // Call helper: pass tmp (result) and addr_ptr (address)
+    gen_helper_cortexm_ld(tmp, tcg_env, addr_ptr);
+
+    // Move helper result to target register
+    tcg_gen_mov_i32(cpu_R[reg], tmp);
+
+    tcg_temp_free_i32(tmp);
+    tcg_temp_free_ptr(addr_ptr);
+
+    if (reg == 15) {
+        tcg_gen_exit_tb(NULL, 0);
+    }
+}
+
+void store_reg_to_mem(int reg, int destination);
+void store_reg_to_mem(int reg, int destination) {
+    TCGv_i32 val = cpu_R[reg];            // Value to store
+    TCGv_i32 addr_i32 = cpu_R[destination]; // Address (as i32)
+    TCGv_ptr addr_ptr = tcg_temp_new_ptr();
+
+    // Extend 32-bit address to pointer type
+    tcg_gen_ext_i32_ptr(addr_ptr, addr_i32);
+
+    // Call helper: pass env, address, and value
+    gen_helper_cortexm_st(tcg_env, addr_ptr, val);
+
+    tcg_temp_free_ptr(addr_ptr);
+}
+
+void return_from_runtime(void );
+void return_from_runtime(void ) {
+	        uint32_t * context = (uint32_t *)intern_gpa2hva(0x20800000);
+            TCGv_i32 reg_val_t = tcg_temp_ebb_new_i32();
+            for (int i =0; i < 16; i++, context++) {
                     TCGv_i32 r= cpu_R[i];
                     TCGv_ptr ptr = tcg_constant_ptr((intptr_t)context);
-					tcg_gen_ld_i32(reg_val_t, ptr, 0);
-					tcg_gen_mov_tl(r, reg_val_t);
+                    tcg_gen_ld_i32(reg_val_t, ptr, 0);
+                    tcg_gen_mov_tl(r, reg_val_t);
             }
-			tcg_gen_exit_tb(NULL, 0);
-			return;
-	}
+            tcg_gen_exit_tb(NULL, 0); 
+            return;
+}
+
+void update_reg(int reg, int target);
+void update_reg(int reg, int target) {
     TCGv_i32 t= cpu_R[reg];
 	//TODO: Fix this we shouldn't hardcode, we should expose this 
 	// as the end of ram.
