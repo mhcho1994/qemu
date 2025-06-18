@@ -29,7 +29,7 @@
 #include "hw/qdev-properties.h"
 #include "hw/qdev-clock.h"
 #include "qemu/error-report.h"
-#include "hw/arm/stm32f405_soc.h"
+#include "hw/arm/stm32f427_soc.h"
 #include "hw/arm/boot.h"
 
 /* olimex-stm32-h405 implementation is derived from netduinoplus2 */
@@ -46,14 +46,14 @@ static void pixhawk1_init(MachineState *machine)
     sysclk = clock_new(OBJECT(machine), "SYSCLK");
     clock_set_hz(sysclk, SYSCLK_FRQ);
 
-    dev = qdev_new(TYPE_STM32F405_SOC);
+    dev = qdev_new(TYPE_STM32F427_SOC);
     object_property_add_child(OBJECT(machine), "soc", OBJECT(dev));
     qdev_connect_clock_in(dev, "sysclk", sysclk);
     sysbus_realize_and_unref(SYS_BUS_DEVICE(dev), &error_fatal);
 
-    armv7m_load_kernel(STM32F405_SOC(dev)->armv7m.cpu,
+    armv7m_load_kernel(STM32F427_SOC(dev)->armv7m.cpu,
                        machine->kernel_filename,
-                       0, 2* FLASH_SIZE);
+                       0, FLASH_SIZE);
 }
 
 static void pixhawk1_machine_init(MachineClass *mc)
