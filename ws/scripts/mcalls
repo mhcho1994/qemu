@@ -1,0 +1,7 @@
+copy_vector_table
+priv_transition
+hijack_vectors
+unpriv_transition
+hook_entry_hook
+instrument_systick
+run_thumb_instruction_and_jump
