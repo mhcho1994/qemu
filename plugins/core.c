@@ -644,6 +644,12 @@ void qemu_plugin_atexit_cb(void)
     plugin_cb__udata(QEMU_PLUGIN_EV_ATEXIT);
 }
 
+
+extern void unimp_export_device(void * arg);
+void qemu_plugin_unimp_export_device(void * ops) {
+		unimp_export_device(ops);
+}
+
 void qemu_plugin_register_atexit_cb(qemu_plugin_id_t id,
                                     qemu_plugin_udata_cb_t cb,
                                     void *udata)

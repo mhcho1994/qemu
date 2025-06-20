@@ -28,6 +28,12 @@ int isdigit(int c);
 #define MAX_LINE_LEN 128
 #define MAX_RULES 256
 
+typedef unsigned long hwaddr;
+typedef struct unimp_exporter {
+    uint64_t (*read)(void *opaque, hwaddr offset, unsigned size);
+    void (*write)(void *opaque, hwaddr offset, uint64_t value, unsigned size);
+} DEV_XPORTER;
+
 typedef enum {
     VALUE_IMMEDIATE, // existing: value is immediate
     VALUE_REGISTER,  // new: value comes from another register (e.g., r3)
@@ -248,9 +254,6 @@ int parse_update_line(const char *line, UpdateEntry *entry) {
 
     return 0;
 }
-
-
-
 
 // Function to load all updates from a file into the global array
 int load_update_entries(const char *filename);
@@ -968,7 +971,23 @@ static void print_rules(void) {
                i, rules[i].address, (void *)rules[i].func, rules[i].args);
     }
 }
-#endif 
+#endif
+
+uint64_t my_unimp_read(void *opaque, hwaddr offset, unsigned size);
+uint64_t my_unimp_read(void *opaque, hwaddr offset, unsigned size) {
+    printf("Read at offset 0x%" PRIx64 "\n", offset);
+    return 0x0;
+}
+
+void my_unimp_write(void *opaque, hwaddr offset, uint64_t value, unsigned size);
+void my_unimp_write(void *opaque, hwaddr offset, uint64_t value, unsigned size) {
+    printf("Write at offset 0x%" PRIx64 " value 0x%" PRIx64 "\n", offset, value);
+}
+
+DEV_XPORTER importer = {.read = my_unimp_read,
+        .write = my_unimp_write};
+
+
 QEMU_PLUGIN_EXPORT int qemu_plugin_install(qemu_plugin_id_t id,
                                            const qemu_info_t *info,
                                            int argc, char **argv)
@@ -995,7 +1014,7 @@ QEMU_PLUGIN_EXPORT int qemu_plugin_install(qemu_plugin_id_t id,
 	runtime = filename; // Lazy Init
 
 
-
+	qemu_plugin_unimp_export_device((void *)&importer);
     qemu_plugin_register_vcpu_tb_trans_cb(id, vcpu_tb_trans);
     qemu_plugin_register_atexit_cb(id, plugin_exit, NULL);
     return 0;

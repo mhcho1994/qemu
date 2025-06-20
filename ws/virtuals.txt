@@ -1,2 +1,1 @@
 0xb7b6 dumplog 0:/home/faculty/abk6349/data/qemu/build//ws/log_out.bin
-0x232 raiseirq 15

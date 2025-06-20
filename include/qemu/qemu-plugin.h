@@ -829,6 +829,11 @@ QEMU_PLUGIN_API
 void qemu_plugin_register_atexit_cb(qemu_plugin_id_t id,
                                     qemu_plugin_udata_cb_t cb, void *userdata);
 
+
+QEMU_PLUGIN_API
+void qemu_plugin_unimp_export_device(void * ops);
+	
+
 /* returns how many vcpus were started at this point */
 QEMU_PLUGIN_API
 int qemu_plugin_num_vcpus(void);
