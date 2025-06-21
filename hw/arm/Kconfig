@@ -155,6 +155,12 @@ config CORTEXM4
     depends on TCG && ARM
     select CORTEXM4_SOC
 
+config CORTEXM7
+    bool
+    default y
+    depends on TCG && ARM
+    select CORTEXM7_SOC
+
 config OMAP
     bool
     select FRAMEBUFFER
@@ -415,6 +421,10 @@ config STM32F427_SOC
 
 config CORTEXM4_SOC
 	bool
+    select ARM_V7M
+
+config CORTEXM7_SOC
+    bool
     select ARM_V7M
 
 config B_L475E_IOT01A
