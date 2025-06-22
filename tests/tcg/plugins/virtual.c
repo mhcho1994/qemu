@@ -13,6 +13,7 @@ int isdigit(int c);
 #include <unistd.h>
 #include <stdio.h>
 #include <glib.h>
+#include <Python.h>
 
 #include <qemu-plugin.h>
 #include <stdio.h>
@@ -335,7 +336,7 @@ void print_tuples(AddressTuple *tuples, size_t count) {
                (void *)tuples[i].target);
     }
 }
-/* You can use these functions like this 
+/* You can use these functions like this
 
 int main() {
     AddressTuple tuples[MAX_TUPLES];
@@ -460,6 +461,27 @@ static void randstate(unsigned int cpu_index, void *udata);
 static void dumplogger(unsigned int cpu_index, void *udata);
 static void dyninst(unsigned int cpu_index, void *udata);
 static void dyninst_lib(unsigned int cpu_index, void *udata);
+static void fastdyn_callback(unsigned int cpu_index, void *udata);
+uint32_t qemu_get_register(int reg);
+
+uint32_t qemu_get_register(int reg)
+{
+    g_autoptr(GArray) reg_list = qemu_plugin_get_registers();
+    g_autoptr(GByteArray) reg_value = g_byte_array_new();
+
+    if (reg_list) {
+            qemu_plugin_reg_descriptor *rd = &g_array_index(
+                reg_list, qemu_plugin_reg_descriptor, reg);
+            int count = qemu_plugin_read_register(rd->handle, reg_value);
+            g_assert(count > 0);
+    }
+
+    uint32_t return_data = reg_value->data[0];
+    return_data = (((uint32_t) (reg_value->data[1])) << 8)  | return_data;
+    return_data = (((uint32_t) (reg_value->data[2])) << 16) | return_data;
+    return_data = (((uint32_t) (reg_value->data[3])) << 24) | return_data;
+    return return_data;
+}
 
 cb_entry_t cb_registry[] = {
     { "updatepc", updatepc },
@@ -470,6 +492,7 @@ cb_entry_t cb_registry[] = {
 	{ "dumplog", dumplogger},
 	{ "dyninst", dyninst},
 	{ "dyninst_lib", dyninst_lib},
+	{ "fastdyn_callback", fastdyn_callback},
 };
 
 #define MAX_FILENAME_LEN 256
@@ -483,6 +506,80 @@ static void dyninst_lib(unsigned int cpu_index, void *udata) {
 	qemu_plugin_load_elf((char *) udata);
 }
 
+void fastdyn_callback(unsigned int cpu_index, void *udata) {
+    // uint32_t val;
+    // uint32_t r0_val;
+	const char *input = (const char *) udata;
+    printf("fastdyn api called!\n");
+    printf("input pc: %s\n",input);
+    //Initialize the Python Interpreter
+    Py_Initialize();
+
+    // Load the Python script
+    PyRun_SimpleString("import sys");
+    PyRun_SimpleString("sys.path.append('.')");
+    PyObject *pName = PyUnicode_FromString("src.main");
+    PyObject *pModule = PyImport_Import(pName);
+    Py_DECREF(pName);
+
+    if (pModule != NULL){
+        // Get write function from the halucinator_plus/main.py
+        PyObject *pFunc = PyObject_GetAttrString(pModule, "fastdyn_callback");
+
+        if (pFunc && PyCallable_Check(pFunc)){
+            //Build the arguments. -> PC Value passed by the user when registering the callback!
+            PyObject *pArgs = PyTuple_Pack(1, PyUnicode_FromString(input));
+
+            // Call the function
+            PyObject *pValue = PyObject_CallObject(pFunc, pArgs);
+            Py_DECREF(pArgs);
+            if (pValue != NULL && PyTuple_Check(pValue)){
+                PyObject *first = PyTuple_GetItem(pValue, 0);  // True/False
+                PyObject *second = PyTuple_GetItem(pValue, 1); // 0/1
+
+                int arg1 = PyObject_IsTrue(first);    // Converts True/False to 1/0
+                long arg2 = PyLong_AsLong(second);    // Gets the integer
+
+                //TODO: Currently, the return values are useless...
+
+                printf("\nFirst: %d, Second: %ld\n", arg1, arg2);
+
+                Py_DECREF(pValue);
+            } else {
+                PyErr_Print();
+            }
+
+            Py_XDECREF(pFunc);
+
+        } else {
+            PyErr_Print();
+        }
+
+    Py_XDECREF(pModule);
+    } else {
+        PyErr_Print();
+    }
+
+    // Finalize the Python interpreter
+    Py_Finalize();
+
+
+    // Now, after the callbacks, let's update the PC and r0
+
+    // //Get the value of link register
+    // val = qemu_get_register(14);
+
+    // //Update the value of PC to link to register value -> Skip the hook
+    // qemu_plugin_set_register((uint8_t *)&val, 15);
+
+    // uint32_t pc_val;
+
+    // pc_val = qemu_get_register(15);
+    // printf("pc_val value is: %x\n", pc_val);
+    // //Get the value of r0 from the function call
+    // r0_val = 0;
+    // qemu_plugin_set_register((uint8_t *)&r0_val, 0);
+}
 
 AddrFilePair parse_addr_file(const char *input);
 AddrFilePair parse_addr_file(const char *input) {
@@ -572,7 +669,7 @@ void* read_file(const char *filename, size_t *length) {
 
 void dyninst(unsigned int cpu_index, void *udata) {
 	AddrFilePair parsed = parse_addr_file((char *)udata);
-	
+
 	size_t file_len = 0;
 	void *file_buf = read_file(parsed.filename, &file_len);
 	if (file_buf) {
@@ -707,7 +804,7 @@ static void randstate(unsigned int cpu_index, void *udata) {
         for (size_t i = 0; i < count; i++) {
 			if (addrs[i] < 100) {
 				uint32_t val = get_random_word();
-				//PC not supported 
+				//PC not supported
 				if (addrs[i] != 15) {
 					qemu_plugin_set_register((uint8_t *)&val,addrs[i] );
 				}
@@ -828,8 +925,14 @@ static void vcpu_tb_trans(qemu_plugin_id_t id, struct qemu_plugin_tb *tb)
 		}
 
 
+		//Second Highest prioirity is Virtual instructions
+		rule_t  *rule;
+        if (find_rule_by_address(qemu_plugin_insn_vaddr(insn), &rule)) {
+                qemu_plugin_register_vcpu_insn_exec_cb(
+                    insn, rule->func, QEMU_PLUGIN_CB_RW_REGS, rule->args);
+        }
 
-		//Second to Highest priority: Modifier
+		//Third priority: Modifier
 		//void * handle= qemu_plugin_register_vcpu_insn_exec_inline_per_vcpu(insn,  QEMU_PLUGIN_CB_GEN_LABEL, NULL, 0);
 		size_t count = find_updates_for_address(qemu_plugin_insn_vaddr(insn), matches, MAX_MATCHES);
 		if (count > 0) {
@@ -857,13 +960,6 @@ static void vcpu_tb_trans(qemu_plugin_id_t id, struct qemu_plugin_tb *tb)
 
     	}
 		}
-
-		//Middle prioirity is Virtual instructions 
-		rule_t  *rule;
-        if (find_rule_by_address(qemu_plugin_insn_vaddr(insn), &rule)) {
-                qemu_plugin_register_vcpu_insn_exec_cb(
-                    insn, rule->func, QEMU_PLUGIN_CB_RW_REGS, rule->args);
-        }
 
 		//Lowest priority is detour
 		AddressTuple * tuple = is_target_address(qemu_plugin_insn_vaddr(insn));
@@ -929,9 +1025,9 @@ void parse_rules_file(const char *filename) {
 
         char addr_str[32];
         char cb_name[64];
-        char args[384] = {0};
+        char args[301] = {0};
 
-        int n = sscanf(line, "%31s %63s %383[^\n]", addr_str, cb_name, args);
+        int n = sscanf(line, "%31s %63s %300[^\n]", addr_str, cb_name, args);
         if (n < 2) {
             fprintf(stderr, "Invalid line in rules file: '%s'\n", line);
             continue;
@@ -976,6 +1072,12 @@ static void print_rules(void) {
 uint64_t my_unimp_read(void *opaque, hwaddr offset, unsigned size);
 uint64_t my_unimp_read(void *opaque, hwaddr offset, unsigned size) {
     printf("Read at offset 0x%" PRIx64 "\n", offset);
+    //logic from Michael's halucinator implementation. (see :: PRehost/src/NGC/generic.py)
+    if (offset == 0x1e4b1) {
+        return 19;
+    } else if (offset == 0x1e03c) {
+        return 1;
+    }
     return 0x0;
 }
 
