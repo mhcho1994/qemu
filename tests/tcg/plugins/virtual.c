@@ -822,15 +822,13 @@ static void randstate(unsigned int cpu_index, void *udata) {
 static void updatepc(unsigned int cpu_index, void *udata)
 {
 	// BUGON: This wont' work anymore
-	uint32_t val = 0xdeadbeef;
-	val = (0x106cc | 1);
-	qemu_plugin_set_register((uint8_t *)&val, 15);
 }
 
 static void updatereg(unsigned int cpu_index, void *udata)
 {
-    uint32_t val = 0xdeadbeef;
-    qemu_plugin_set_register((uint8_t *)&val, 1);
+	FloatConverter fc;
+	fc.f = 3.14;
+    qemu_plugin_set_register((uint8_t *)&fc, ARM_V7M_S0);
 }
 
 

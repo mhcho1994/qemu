@@ -4,7 +4,19 @@ python3 = import('python').find_installation('python3')
 python_dep = python3.dependency()
 
 cc = meson.get_compiler('c')
-libpython = cc.find_library('python3.10', required: true)
+python_versions = ['python3.15', 'python3.14', 'python3.13', 'python3.12', 'python3.11', 'python3.10']
+libpython = not_found
+
+foreach v : python_versions
+  libpython = cc.find_library(v, required: false)
+  if libpython.found()
+    break
+  endif
+endforeach
+
+if not libpython.found()
+  error('Required Python library not found (3.10 - 3.15)')
+endif
 
 if get_option('plugins')
   foreach i : ['bb', 'empty', 'inline', 'insn', 'mem', 'reset', 'syscall', 'virtual']
