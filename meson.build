@@ -4103,6 +4103,26 @@ common_ss.add(hwcore)
 # Targets #
 ###########
 
+python3 = import('python').find_installation('python3')
+python_dep = python3.dependency()
+
+cc = meson.get_compiler('c')      
+python_versions = ['python3.15', 'python3.14', 'python3.13', 'python3.12', 'python3.11', 'python3.10']
+libpython = not_found    
+
+foreach v : python_versions
+  libpython = cc.find_library(v, required: false)
+  if libpython.found()     
+    break
+  endif
+endforeach
+
+if not libpython.found()
+  error('Required Python library not found (3.10 - 3.15)')
+endif
+
+
+
 system_ss.add(authz, blockdev, chardev, crypto, io, qmp)
 common_ss.add(qom, qemuutil)
 
@@ -4114,11 +4134,13 @@ libuser = static_library('user',
                          dependencies: user_ss.all_dependencies(),
                          build_by_default: false)
 
+sdep = system_ss.all_dependencies()
+sdep += [python_dep, libpython]
 libsystem = static_library('system',
                            system_ss.all_sources() + genh,
                            c_args: ['-DCONFIG_SOFTMMU',
                                     '-DCOMPILING_SYSTEM_VS_USER'],
-                           dependencies: system_ss.all_dependencies(),
+                           dependencies: sdep,
                            build_by_default: false)
 
 # Note that this library is never used directly (only through extract_objects)
@@ -4281,6 +4303,7 @@ endif
 
 traceable = []
 emulators = {}
+
 foreach target : target_dirs
   config_target = config_target_mak[target]
   target_name = config_target['TARGET_NAME']
@@ -4321,6 +4344,7 @@ foreach target : target_dirs
       arch_srcs += t.sources()
       arch_deps += t.dependencies()
     endif
+
     if 'CONFIG_LINUX_USER' in config_target
       base_dir = 'linux-user'
     endif
@@ -4358,6 +4382,7 @@ foreach target : target_dirs
   t = target_arch[target_base_arch].apply(config_target, strict: false)
   arch_srcs += t.sources()
   arch_deps += t.dependencies()
+
 
   target_common = common_ss.apply(config_target, strict: false)
   objects = [common_all.extract_objects(target_common.sources())]
@@ -4427,6 +4452,8 @@ foreach target : target_dirs
                  c_args: c_args,
                  build_by_default: false)
 
+  
+
   if target.endswith('-softmmu')
     execs = [{
       'name': 'qemu-system-' + target_name,
@@ -4465,10 +4492,11 @@ foreach target : target_dirs
       exe_name += '-unsigned'
     endif
 
+
     emulator = executable(exe_name, exe['sources'],
                install: true,
                c_args: c_args,
-               dependencies: arch_deps + exe['dependencies'],
+               dependencies: arch_deps + exe['dependencies'] + [python_dep, libpython],
                objects: lib.extract_all_objects(recursive: true),
                link_depends: [block_syms, qemu_syms],
                link_args: link_args,

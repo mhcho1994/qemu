@@ -516,7 +516,11 @@ void fastdyn_callback(unsigned int cpu_index, void *udata) {
     Py_Initialize();
 
     // Load the Python script
-    PyRun_SimpleString("import sys");
+    PyRun_SimpleString("import zmq");
+
+	//temporary return
+	return;
+
     PyRun_SimpleString("sys.path.append('.')");
     PyObject *pName = PyUnicode_FromString("src.main");
     PyObject *pModule = PyImport_Import(pName);
