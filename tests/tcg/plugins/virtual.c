@@ -515,14 +515,13 @@ void fastdyn_callback(unsigned int cpu_index, void *udata) {
     //Initialize the Python Interpreter
     Py_Initialize();
 
+    PyRun_SimpleString("import zmq; print(zmq.__file__); print(zmq.__version__)");
+
     // Load the Python script
-    PyRun_SimpleString("import zmq");
-
-	//temporary return
-	return;
-
+    PyRun_SimpleString("import sys");
     PyRun_SimpleString("sys.path.append('.')");
-    PyObject *pName = PyUnicode_FromString("src.main");
+    // PyRun_SimpleString("sys.path.append('/home/hammad/.local/lib/python3.10/site-packages')");
+    PyObject *pName = PyUnicode_FromString("fastdyne_caller");
     PyObject *pModule = PyImport_Import(pName);
     Py_DECREF(pName);
 
