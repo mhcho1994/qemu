@@ -1,3 +1,2 @@
-0xb7b6 dumplog 0:/home/faculty/abk6349/data/qemu/build//ws/log_out.bin
-0x82 updatereg 123
-0x84 fastdyn_callback 123
+0x49a0 fastdyn_callback 0x49a0
+0xb1b4 fastdyn_callback 0xb1b4

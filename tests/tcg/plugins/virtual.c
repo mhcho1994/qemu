@@ -506,35 +506,45 @@ static void dyninst_lib(unsigned int cpu_index, void *udata) {
 	qemu_plugin_load_elf((char *) udata);
 }
 
+static uint8_t py_init = false;
 void fastdyn_callback(unsigned int cpu_index, void *udata) {
     // uint32_t val;
     // uint32_t r0_val;
 	const char *input = (const char *) udata;
+	static PyObject *dynfast_callback = NULL;
     printf("fastdyn api called!\n");
     printf("input pc: %s\n",input);
-    //Initialize the Python Interpreter
-    Py_Initialize();
+	if (!py_init) {
+    	//Initialize the Python Interpreter
+	    Py_Initialize();
+		PyRun_SimpleString("import sys");
+		PyRun_SimpleString("sys.path.append('.')");
 
-    PyRun_SimpleString("import zmq; print(zmq.__file__); print(zmq.__version__)");
+    	PyObject *pName = PyUnicode_FromString("fastdyne_caller");
+	    PyObject *pModule = PyImport_Import(pName);
+    	Py_DECREF(pName);
 
-    // Load the Python script
-    PyRun_SimpleString("import sys");
-    PyRun_SimpleString("sys.path.append('.')");
-    // PyRun_SimpleString("sys.path.append('/home/hammad/.local/lib/python3.10/site-packages')");
-    PyObject *pName = PyUnicode_FromString("fastdyne_caller");
-    PyObject *pModule = PyImport_Import(pName);
-    Py_DECREF(pName);
+		if (pModule != NULL) { 
+			// Get write function from the halucinator_plus/main.py
+	        dynfast_callback = PyObject_GetAttrString(pModule, "fastdyn_callback");
 
-    if (pModule != NULL){
-        // Get write function from the halucinator_plus/main.py
-        PyObject *pFunc = PyObject_GetAttrString(pModule, "fastdyn_callback");
-
-        if (pFunc && PyCallable_Check(pFunc)){
+			if (dynfast_callback && PyCallable_Check(dynfast_callback)) {
+					py_init = true;
+			} else {
+					//Add garbage handling mabye when we go out of scope
+					PyErr_Print();
+					exit(1);
+			}
+		} else {
+			PyErr_Print();
+		}
+	}
+	if (py_init) {
             //Build the arguments. -> PC Value passed by the user when registering the callback!
             PyObject *pArgs = PyTuple_Pack(1, PyUnicode_FromString(input));
 
             // Call the function
-            PyObject *pValue = PyObject_CallObject(pFunc, pArgs);
+            PyObject *pValue = PyObject_CallObject(dynfast_callback, pArgs);
             Py_DECREF(pArgs);
             if (pValue != NULL && PyTuple_Check(pValue)){
                 PyObject *first = PyTuple_GetItem(pValue, 0);  // True/False
@@ -551,37 +561,7 @@ void fastdyn_callback(unsigned int cpu_index, void *udata) {
             } else {
                 PyErr_Print();
             }
-
-            Py_XDECREF(pFunc);
-
-        } else {
-            PyErr_Print();
-        }
-
-    Py_XDECREF(pModule);
-    } else {
-        PyErr_Print();
-    }
-
-    // Finalize the Python interpreter
-    Py_Finalize();
-
-
-    // Now, after the callbacks, let's update the PC and r0
-
-    // //Get the value of link register
-    // val = qemu_get_register(14);
-
-    // //Update the value of PC to link to register value -> Skip the hook
-    // qemu_plugin_set_register((uint8_t *)&val, 15);
-
-    // uint32_t pc_val;
-
-    // pc_val = qemu_get_register(15);
-    // printf("pc_val value is: %x\n", pc_val);
-    // //Get the value of r0 from the function call
-    // r0_val = 0;
-    // qemu_plugin_set_register((uint8_t *)&r0_val, 0);
+	}
 }
 
 AddrFilePair parse_addr_file(const char *input);
