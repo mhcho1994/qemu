@@ -513,8 +513,6 @@ void fastdyn_callback(unsigned int cpu_index, void *udata) {
     // uint32_t val;
     // uint32_t r0_val;
 	const char *input = (const char *) udata;
-    printf("fastdyn api called!\n");
-    printf("input pc: %s\n",input);
 	if (!py_init) {
         //Initialize the Python Interpreter
 	    Py_Initialize();
@@ -597,6 +595,9 @@ void fastdyn_callback(unsigned int cpu_index, void *udata) {
             }
     }
 	if (py_init) {
+            printf("fastdyn api called!\n");
+            printf("input pc: %s\n",input);
+
             //Build the arguments. -> PC Value passed by the user when registering the callback!
             PyObject *fastdyn_callback_args = PyTuple_Pack(1, PyUnicode_FromString(input));
 
@@ -609,11 +610,17 @@ void fastdyn_callback(unsigned int cpu_index, void *udata) {
                 PyObject *first = PyTuple_GetItem(fastdyn_callback_return_val, 0);  // True/False
                 PyObject *second = PyTuple_GetItem(fastdyn_callback_return_val, 1); // 0/1
 
-                //TODO: Currently, the return values are useless...
-                int arg1 = PyObject_IsTrue(first);    // Converts True/False to 1/0
-                long arg2 = PyLong_AsLong(second);    // Gets the integer
+                int intercept_val = PyObject_IsTrue(first);     // Converts True/False to 1/0
+                long ret_val = PyLong_AsLong(second);           // Gets the integer
 
-                printf("\nFirst: %d, Second: %ld\n", arg1, arg2);
+                printf("\nFirst: %d, Second: %ld\n", intercept_val, ret_val);
+
+                // update the return value based on the value from halucinator
+                if (intercept_val) {
+                    if (ret_val != -1) {    //None type return case!
+					qemu_plugin_set_register((uint8_t *)&ret_val,0);
+                    }
+                }
 
                 Py_DECREF(fastdyn_callback_return_val);
             } else {
