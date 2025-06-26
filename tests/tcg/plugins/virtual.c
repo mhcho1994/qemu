@@ -462,6 +462,7 @@ static void dumplogger(unsigned int cpu_index, void *udata);
 static void dyninst(unsigned int cpu_index, void *udata);
 static void dyninst_lib(unsigned int cpu_index, void *udata);
 static void fastdyn_callback(unsigned int cpu_index, void *udata);
+PyMODINIT_FUNC PyInit_emb(void);
 uint32_t qemu_get_register(int reg);
 
 uint32_t qemu_get_register(int reg)
@@ -514,13 +515,28 @@ void fastdyn_callback(unsigned int cpu_index, void *udata) {
     // uint32_t r0_val;
 	const char *input = (const char *) udata;
 	if (!py_init) {
+
         //Initialize the Python Interpreter
-	    Py_Initialize();
+        Py_Initialize();
+
 		PyRun_SimpleString("import sys");
 		PyRun_SimpleString("import os");
         PyRun_SimpleString("sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', buffering=1)");
         PyRun_SimpleString("sys.stderr = os.fdopen(sys.stderr.fileno(), 'w', buffering=1)");
         PyRun_SimpleString("sys.path.append('.')");
+
+        //Load the module for the C APIs <-> Python Interaction.
+        PyObject *hal_reg_mem = PyUnicode_FromString("src.halucinator.hal_reg_mem");
+        PyObject *hal_reg_mem_module = PyImport_Import(hal_reg_mem);
+        Py_DECREF(hal_reg_mem);
+
+        if (!hal_reg_mem_module) {
+            PyErr_Print();
+            fprintf(stderr, "Failed to load Python script.\n");
+        }
+
+        Py_XDECREF(hal_reg_mem_module);
+
 
         //Qemu -> Halucinator (Single Process)
         //Let's initialize the Halucinator Hal_initialzer -> For now, the configurations are defined inside the file, will update later, once stable.
@@ -629,6 +645,59 @@ void fastdyn_callback(unsigned int cpu_index, void *udata) {
             }
     }
 }
+
+
+//Expose read/write registers/memory API from here...
+uint32_t read_reg(int reg);
+uint32_t read_reg(int reg){
+    uint32_t reg_val = qemu_get_register(reg);
+    return reg_val;
+}
+static PyObject *read_reg_callback(PyObject *self, PyObject *args) {
+    return PyCapsule_New((void *)read_reg, "read_reg_func", NULL);
+}
+
+void write_reg(int reg, uint32_t val);
+void write_reg(int reg, uint32_t val){
+    qemu_plugin_set_register((uint8_t *)&val, reg);
+}
+static PyObject *write_reg_callback(PyObject *self, PyObject *args) {
+    return PyCapsule_New((void *)write_reg, "write_reg_func", NULL);
+}
+
+int read_memory(unsigned long long addr, uint8_t *mem_buf, int len);
+int read_memory(unsigned long long addr, uint8_t *mem_buf, int len){
+    return qemu_plugin_read_memory(addr, mem_buf, len);
+}
+static PyObject *read_mem_callback(PyObject *self, PyObject *args) {
+    return PyCapsule_New((void *)read_memory, "read_mem_func", NULL);
+}
+
+int write_memory(unsigned long long addr, uint8_t *mem_buf, int len);
+int write_memory(unsigned long long addr, uint8_t *mem_buf, int len){
+    return qemu_plugin_write_memory(addr, mem_buf, len);
+}
+static PyObject *write_mem_callback(PyObject *self, PyObject *args) {
+    return PyCapsule_New((void *)write_memory, "write_mem_func", NULL);
+}
+
+// Python method definitions for both read and write
+static PyMethodDef EmbMethods[] = {
+    {"read_reg_callback", read_reg_callback, METH_NOARGS, "Returns a pointer to the C read_reg callback function"},
+    {"write_reg_callback", write_reg_callback, METH_NOARGS, "Returns a pointer to the C write_reg callback function"},
+    {"read_mem_callback", read_mem_callback, METH_NOARGS, "Returns a pointer to the C write_reg callback function"},
+    {"write_mem_callback", write_mem_callback, METH_NOARGS, "Returns a pointer to the C write_reg callback function"},
+    {NULL, NULL, 0, NULL}
+};
+
+static struct PyModuleDef qemuapi = {
+    PyModuleDef_HEAD_INIT, "qemuapi", NULL, -1, EmbMethods
+};
+
+PyMODINIT_FUNC PyInit_emb(void) {
+    return PyModule_Create(&qemuapi);
+}
+
 
 AddrFilePair parse_addr_file(const char *input);
 AddrFilePair parse_addr_file(const char *input) {
@@ -1147,7 +1216,11 @@ QEMU_PLUGIN_EXPORT int qemu_plugin_install(qemu_plugin_id_t id,
     }
 
     Py_Finalize();
-	const char *filename= get_arg("detour", argc, argv);
+
+    //Register QEMU-API Module
+    PyImport_AppendInittab("qemuapi", PyInit_emb);
+
+    const char *filename= get_arg("detour", argc, argv);
     num_tuples = read_tuples_from_file(filename, address_tuples, MAX_TUPLES);
 
 	filename= get_arg("modifier", argc, argv);
