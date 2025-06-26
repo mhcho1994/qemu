@@ -939,7 +939,14 @@ static void randstate(unsigned int cpu_index, void *udata) {
 }
 static void updatepc(unsigned int cpu_index, void *udata)
 {
-	// BUGON: This wont' work anymore
+	const char *s = (const char *) udata;
+	if (s[0] != '*') {
+			printf("Wrong usage of CF affecting virtual function \n");
+			return;
+	}
+	unsigned long addr = strtoul((s + 1), NULL, 16);
+
+	qemu_plugin_set_register((uint8_t *) &addr, ARM_V7M_PC);
 }
 
 static void updatereg(unsigned int cpu_index, void *udata)
