@@ -1044,8 +1044,13 @@ static void vcpu_tb_trans(qemu_plugin_id_t id, struct qemu_plugin_tb *tb)
 		//Second Highest prioirity is Virtual instructions
 		rule_t  *rule;
         if (find_rule_by_address(qemu_plugin_insn_vaddr(insn), &rule)) {
-                qemu_plugin_register_vcpu_insn_exec_cb(
-                    insn, rule->func, QEMU_PLUGIN_CB_RW_REGS, rule->args);
+				if (rule->args[0] == '*') {
+					qemu_plugin_register_vcpu_insn_exec_cb(
+                        insn, rule->func, QEMU_PLUGIN_CB_RW_REGS | QEMU_PLUGIN_CB_RW_CFI, rule->args);
+				} else {
+                	qemu_plugin_register_vcpu_insn_exec_cb(
+                    	insn, rule->func, QEMU_PLUGIN_CB_RW_REGS, rule->args);
+				}
         }
 
 		//Third priority: Modifier
