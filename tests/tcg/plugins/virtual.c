@@ -1197,8 +1197,12 @@ static void print_rules(void) {
 }
 #endif
 
+
+#define NRF52840 
+
 uint64_t my_unimp_read(void *opaque, hwaddr offset, unsigned size);
 uint64_t my_unimp_read(void *opaque, hwaddr offset, unsigned size) {
+#if  defined(RA4M1)
     printf("Read at offset 0x%" PRIx64 "\n", offset);
     //logic from Michael's halucinator implementation. (see :: PRehost/src/NGC/generic.py)
     if (offset == 0x1e4b1) {
@@ -1206,6 +1210,11 @@ uint64_t my_unimp_read(void *opaque, hwaddr offset, unsigned size) {
     } else if (offset == 0x1e03c) {
         return 1;
     }
+#elif defined(NRF52840)
+	if (offset == 0x104) {
+		return 1;
+	}
+#endif 
     return 0x0;
 }
 
@@ -1222,31 +1231,36 @@ QEMU_PLUGIN_EXPORT int qemu_plugin_install(qemu_plugin_id_t id,
                                            const qemu_info_t *info,
                                            int argc, char **argv)
 {
-	if (argc < 1) {
-        fprintf(stderr, "Usage: plugin.so <address_file.txt>\n");
-        return -1;
-    }
-
     Py_Finalize();
 
     //Register QEMU-API Module
     PyImport_AppendInittab("qemuapi", PyInit_emb);
 
     const char *filename= get_arg("detour", argc, argv);
-    num_tuples = read_tuples_from_file(filename, address_tuples, MAX_TUPLES);
+	if (filename) {
+			num_tuples = read_tuples_from_file(filename, address_tuples, MAX_TUPLES);
+	}
 
 	filename= get_arg("modifier", argc, argv);
-	load_update_entries(filename);
+	if (filename) { 
+		load_update_entries(filename);
+	}
 
 	filename = get_arg("virtual", argc, argv);
-	parse_rules_file(filename);
+	if (filename) {
+		parse_rules_file(filename);
+	}
 
 
 	filename = get_arg("logger", argc, argv);
+	if (filename) {
 	load_logger_config(filename);
+	}
 
 	filename = get_arg("monitor", argc, argv);
-	runtime = filename; // Lazy Init
+	if (filename) {
+		runtime = filename; // Lazy Init
+	}
 
 
 	qemu_plugin_unimp_export_device((void *)&importer);
