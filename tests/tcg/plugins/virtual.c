@@ -507,6 +507,7 @@ void qemu_set_register(uint32_t value, int reg) {
 	}
 }
 
+
 cb_entry_t cb_registry[] = {
     { "updatepc", updatepc },
 	{ "updatereg", updatereg},
@@ -977,6 +978,9 @@ static void updatereg(unsigned int cpu_index, void *udata)
 	FloatConverter fc;
 	fc.f = 3.14;
     qemu_set_register(fc.i, ARM_V7M_S0);
+	DoubleConverter dc;
+	dc.d = 3.14;
+	qemu_plugin_set_register((uint8_t *)&dc.i, ARM_V7M_D4);
 	fc.i = qemu_get_register(ARM_V7M_S0);
 	printf("Hello %f \n", fc.f);
 }

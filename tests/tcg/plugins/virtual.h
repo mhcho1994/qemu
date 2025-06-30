@@ -53,6 +53,23 @@
 #define ARM_V7M_S30  56
 #define ARM_V7M_S31  57
 
+#define ARM_V7M_D0  26
+#define ARM_V7M_D1  27
+#define ARM_V7M_D2  28
+#define ARM_V7M_D3  29
+#define ARM_V7M_D4  30
+#define ARM_V7M_D5  31
+#define ARM_V7M_D6  32
+#define ARM_V7M_D7  33
+#define ARM_V7M_D8  34
+#define ARM_V7M_D9  35
+#define ARM_V7M_D10 36
+#define ARM_V7M_D11 37
+#define ARM_V7M_D12 38
+#define ARM_V7M_D13 39
+#define ARM_V7M_D14 40
+#define ARM_V7M_D15 41
+
 
 typedef void (*cb_func_t)(unsigned int cpu_index, void *userdata);
 
