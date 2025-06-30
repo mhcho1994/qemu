@@ -464,24 +464,47 @@ static void dyninst_lib(unsigned int cpu_index, void *udata);
 static void fastdyn_callback(unsigned int cpu_index, void *udata);
 PyMODINIT_FUNC PyInit_emb(void);
 uint32_t qemu_get_register(int reg);
-
 uint32_t qemu_get_register(int reg)
 {
     g_autoptr(GArray) reg_list = qemu_plugin_get_registers();
     g_autoptr(GByteArray) reg_value = g_byte_array_new();
+	int offset = 0;
+	int oreg = reg;
+
+	if (reg >= ARM_V7M_S0) 
+		oreg = 17 + ((reg - ARM_V7M_S0) / 2);
+
 
     if (reg_list) {
             qemu_plugin_reg_descriptor *rd = &g_array_index(
-                reg_list, qemu_plugin_reg_descriptor, reg);
+                reg_list, qemu_plugin_reg_descriptor, oreg);
             int count = qemu_plugin_read_register(rd->handle, reg_value);
             g_assert(count > 0);
     }
 
-    uint32_t return_data = reg_value->data[0];
-    return_data = (((uint32_t) (reg_value->data[1])) << 8)  | return_data;
-    return_data = (((uint32_t) (reg_value->data[2])) << 16) | return_data;
-    return_data = (((uint32_t) (reg_value->data[3])) << 24) | return_data;
+	if ((reg >= ARM_V7M_S0) && ((reg - ARM_V7M_S0)  %2)) {
+			//S1...
+			offset = 4;
+	}
+
+    uint32_t return_data = reg_value->data[offset + 0];
+    return_data = (((uint32_t) (reg_value->data[offset + 1])) << 8)  | return_data;
+    return_data = (((uint32_t) (reg_value->data[offset + 2])) << 16) | return_data;
+    return_data = (((uint32_t) (reg_value->data[offset + 3])) << 24) | return_data;
     return return_data;
+}
+
+void qemu_set_register(uint32_t value, int reg);
+void qemu_set_register(uint32_t value, int reg) {
+	if ((reg >= ARM_V7M_S0)) {
+			DoubleConverter dc;
+			dc.i[((reg - ARM_V7M_S0)  %2)] = value;
+			dc.i[(((reg - ARM_V7M_S0)  %2) + 1) %2] = 0;
+			reg = ARM_V7M_S0 + ((reg - ARM_V7M_S0) / 2);
+			qemu_plugin_set_register((uint8_t *)&dc, reg);
+    } else {
+			qemu_plugin_set_register((uint8_t *)&value, reg);
+	}
 }
 
 cb_entry_t cb_registry[] = {
@@ -953,7 +976,9 @@ static void updatereg(unsigned int cpu_index, void *udata)
 {
 	FloatConverter fc;
 	fc.f = 3.14;
-    qemu_plugin_set_register((uint8_t *)&fc, ARM_V7M_S0);
+    qemu_set_register(fc.i, ARM_V7M_S0);
+	fc.i = qemu_get_register(ARM_V7M_S0);
+	printf("Hello %f \n", fc.f);
 }
 
 

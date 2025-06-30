@@ -69,13 +69,16 @@ typedef struct {
 
 
 typedef union {
-        float f;
+		float  f;
         uint32_t i;
 } FloatConverter;
 
+
+
 typedef union {
         double d;
-        uint64_t i;
+		float f[2];
+        uint32_t i[2];
 } DoubleConverter;
 
 
