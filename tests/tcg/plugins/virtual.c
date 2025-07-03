@@ -29,6 +29,16 @@ int isdigit(int c);
 #define MAX_LINE_LEN 128
 #define MAX_RULES 256
 
+// #define DEBUG_PRINT
+
+#ifdef DEBUG_PRINT
+  #define DEBUG_LOG(fmt, ...) printf("DEBUG: " fmt, ##__VA_ARGS__)
+#else
+  #define DEBUG_LOG(fmt, ...) // nothing
+#endif
+
+
+
 typedef unsigned long hwaddr;
 typedef struct unimp_exporter {
     uint64_t (*read)(void *opaque, hwaddr offset, unsigned size);
@@ -471,7 +481,7 @@ uint32_t qemu_get_register(int reg)
 	int offset = 0;
 	int oreg = reg;
 
-	if (reg >= ARM_V7M_S0) 
+	if (reg >= ARM_V7M_S0)
 		oreg = 17 + ((reg - ARM_V7M_S0) / 2);
 
 
@@ -635,8 +645,8 @@ void fastdyn_callback(unsigned int cpu_index, void *udata) {
             }
     }
 	if (py_init) {
-            printf("fastdyn api called!\n");
-            printf("input pc: %s\n",input);
+            DEBUG_LOG("fastdyn api called!\n");
+            DEBUG_LOG("input pc: %s\n",input);
 
             //Build the arguments. -> PC Value passed by the user when registering the callback!
             PyObject *fastdyn_callback_args = PyTuple_Pack(1, PyUnicode_FromString(input));
@@ -647,21 +657,6 @@ void fastdyn_callback(unsigned int cpu_index, void *udata) {
             Py_DECREF(fastdyn_callback_args);
             //Verify the halucinator was initialized successfully!
             if (fastdyn_callback_return_val != NULL && PyTuple_Check(fastdyn_callback_return_val)){
-                PyObject *first = PyTuple_GetItem(fastdyn_callback_return_val, 0);  // True/False
-                PyObject *second = PyTuple_GetItem(fastdyn_callback_return_val, 1); // 0/1
-
-                int intercept_val = PyObject_IsTrue(first);     // Converts True/False to 1/0
-                long ret_val = PyLong_AsLong(second);           // Gets the integer
-
-                printf("\nFirst: %d, Second: %ld\n", intercept_val, ret_val);
-
-                // update the return value based on the value from halucinator
-                if (intercept_val) {
-                    if (ret_val != -1) {    //None type return case!
-					qemu_plugin_set_register((uint8_t *)&ret_val,0);
-                    }
-                }
-
                 Py_DECREF(fastdyn_callback_return_val);
             } else {
                 PyErr_Print();
@@ -681,12 +676,34 @@ static PyObject *read_reg_callback(PyObject *self, PyObject *args) {
     return PyCapsule_New((void *)read_reg, "read_reg_func", NULL);
 }
 
+uint32_t read_floating_reg(int reg);
+uint32_t read_floating_reg(int reg){
+    FloatConverter fc;
+    fc.i = qemu_get_register(reg);
+    DEBUG_LOG("Read_REG value %f\n", fc.f);
+    return fc.f;
+}
+static PyObject *read_floating_reg_callback(PyObject *self, PyObject *args) {
+    return PyCapsule_New((void *)read_floating_reg, "read_floating_reg_func", NULL);
+}
+
 void write_reg(int reg, uint32_t val);
 void write_reg(int reg, uint32_t val){
-    qemu_plugin_set_register((uint8_t *)&val, reg);
+    qemu_set_register(val, reg);
 }
 static PyObject *write_reg_callback(PyObject *self, PyObject *args) {
     return PyCapsule_New((void *)write_reg, "write_reg_func", NULL);
+}
+
+void write_floating_reg(int reg, float val);
+void write_floating_reg(int reg, float val){
+    FloatConverter fc;
+    fc.f = val;
+    DEBUG_LOG("the value from c code is %f\n", fc.f);
+    qemu_set_register(fc.i, reg);
+}
+static PyObject *write_floating_reg_callback(PyObject *self, PyObject *args) {
+    return PyCapsule_New((void *)write_floating_reg, "write_floating_reg_func", NULL);
 }
 
 int read_memory(unsigned long long addr, uint8_t *mem_buf, int len);
@@ -705,12 +722,24 @@ static PyObject *write_mem_callback(PyObject *self, PyObject *args) {
     return PyCapsule_New((void *)write_memory, "write_mem_func", NULL);
 }
 
+unsigned long long virtual_clock(void);
+unsigned long long virtual_clock(void){
+    return (unsigned long long)qemu_plugin_get_virtual_timer();
+}
+
+static PyObject *virtual_clock_callback(PyObject *self, PyObject *args) {
+    return PyCapsule_New((void *)virtual_clock, "virtual_clock_func", NULL);
+}
+
 // Python method definitions for both read and write
 static PyMethodDef EmbMethods[] = {
     {"read_reg_callback", read_reg_callback, METH_NOARGS, "Returns a pointer to the C read_reg callback function"},
     {"write_reg_callback", write_reg_callback, METH_NOARGS, "Returns a pointer to the C write_reg callback function"},
     {"read_mem_callback", read_mem_callback, METH_NOARGS, "Returns a pointer to the C write_reg callback function"},
     {"write_mem_callback", write_mem_callback, METH_NOARGS, "Returns a pointer to the C write_reg callback function"},
+    {"virtual_clock_callback", virtual_clock_callback, METH_NOARGS, "Returns a pointer to the C write_reg callback function"},
+    {"write_floating_reg_callback", write_floating_reg_callback, METH_NOARGS, "Returns a pointer to the C write_reg callback function"},
+    {"read_floating_reg_callback", read_floating_reg_callback, METH_NOARGS, "Returns a pointer to the C write_reg callback function"},
     {NULL, NULL, 0, NULL}
 };
 
@@ -982,7 +1011,7 @@ static void updatereg(unsigned int cpu_index, void *udata)
 	dc.d = 3.14;
 	qemu_plugin_set_register((uint8_t *)&dc.i, ARM_V7M_D4);
 	fc.i = qemu_get_register(ARM_V7M_S0);
-	printf("Hello %f \n", fc.f);
+	DEBUG_LOG("Hello %f \n", fc.f);
 }
 
 
@@ -1049,7 +1078,7 @@ static void vcpu_tb_trans(qemu_plugin_id_t id, struct qemu_plugin_tb *tb)
     size_t i;
 	UpdateEntry *matches[MAX_MATCHES];
 
-	// printf("->Virtual Clock: %llu \n", (unsigned long long)qemu_plugin_get_virtual_timer());
+	DEBUG_LOG("->Virtual Clock: %llu \n", (unsigned long long)qemu_plugin_get_virtual_timer());
 
     for (i = 0; i < n; i++) {
         struct qemu_plugin_insn *insn = qemu_plugin_tb_get_insn(tb, i);
@@ -1096,9 +1125,9 @@ static void vcpu_tb_trans(qemu_plugin_id_t id, struct qemu_plugin_tb *tb)
 		for (size_t match_idx = 0; match_idx < count; ++match_idx) {
 			UpdateEntry *e = matches[match_idx];
 
-			printf("  Update Point: 0x%lx, ", e->update_point);
+			DEBUG_LOG("  Update Point: 0x%lx, ", e->update_point);
 	        if (e->type == TARGET_REGISTER || e->type == TARGET_DEREF) {
-    	        printf("Target: r%d, ", e->target.reg_num);
+    	        DEBUG_LOG("Target: r%d, ", e->target.reg_num);
 				qemu_plugin_u64 entry;
                 // In TCG frontend it is already set, if you want to modify it you will have to
                 // change CPSR.
@@ -1106,13 +1135,13 @@ static void vcpu_tb_trans(qemu_plugin_id_t id, struct qemu_plugin_tb *tb)
 				entry.data = (void *)e;
                 qemu_plugin_register_vcpu_insn_exec_inline_per_vcpu(insn, QEMU_PLUGIN_INLINE_UPDATE_REG, entry, e->target.reg_num);
 	        } else if (e->type == TARGET_MEMORY) {
-				printf("Target: r%d, ", e->target.reg_num);
+				DEBUG_LOG("Target: r%d, ", e->target.reg_num);
                 qemu_plugin_u64 entry;
                 // In TCG frontend it is already set, if you want to modify it you will have to
                 // change CPSR.
                 entry.offset = (size_t)(e->value.imm);
                 qemu_plugin_register_vcpu_insn_exec_inline_per_vcpu(insn, QEMU_PLUGIN_INLINE_UPDATE_MEM, entry, e->target.addr);
-    	        printf("Target: 0x%lx, ", e->target.addr);
+    	        DEBUG_LOG("Target: 0x%lx, ", e->target.addr);
        		}
 
     	}
@@ -1227,12 +1256,13 @@ static void print_rules(void) {
 #endif
 
 
-#define NRF52840 
+// #define NRF52840
+#define RA4M1
 
 uint64_t my_unimp_read(void *opaque, hwaddr offset, unsigned size);
 uint64_t my_unimp_read(void *opaque, hwaddr offset, unsigned size) {
 #if  defined(RA4M1)
-    printf("Read at offset 0x%" PRIx64 "\n", offset);
+    DEBUG_LOG("Read at offset 0x%" PRIx64 "\n", offset);
     //logic from Michael's halucinator implementation. (see :: PRehost/src/NGC/generic.py)
     if (offset == 0x1e4b1) {
         return 19;
@@ -1243,13 +1273,14 @@ uint64_t my_unimp_read(void *opaque, hwaddr offset, unsigned size) {
 	if (offset == 0x104) {
 		return 1;
 	}
-#endif 
+#endif
     return 0x0;
 }
 
 void my_unimp_write(void *opaque, hwaddr offset, uint64_t value, unsigned size);
 void my_unimp_write(void *opaque, hwaddr offset, uint64_t value, unsigned size) {
-    printf("Write at offset 0x%" PRIx64 " value 0x%" PRIx64 "\n", offset, value);
+    DEBUG_LOG("Current pc: %x\n", qemu_get_register(15));
+    DEBUG_LOG("Write at offset 0x%" PRIx64 " value 0x%" PRIx64 "\n", offset, value);
 }
 
 DEV_XPORTER importer = {.read = my_unimp_read,
@@ -1271,7 +1302,7 @@ QEMU_PLUGIN_EXPORT int qemu_plugin_install(qemu_plugin_id_t id,
 	}
 
 	filename= get_arg("modifier", argc, argv);
-	if (filename) { 
+	if (filename) {
 		load_update_entries(filename);
 	}
 
