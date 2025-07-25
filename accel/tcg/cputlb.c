@@ -1551,13 +1551,14 @@ tb_page_addr_t get_page_addr_code_hostp(CPUArchState *env, vaddr addr,
         return -1;
     }
 
+	if (hostp) {
+        *hostp = p;
+    }
+
     if (full->lg_page_size < TARGET_PAGE_BITS) {
         return -1;
     }
 
-    if (hostp) {
-        *hostp = p;
-    }
     return qemu_ram_addr_from_host_nofail(p);
 }
 

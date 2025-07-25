@@ -1,13 +1,15 @@
 import gdb
 import os
 
-CONTEXT_ADDR = 0x20800000
+#Carefully use last 256 bytes
+CONTEXT_ADDR = 0x3FFFFF00
 REG_NAMES = [
     'r0', 'r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7',
     'r8', 'r9', 'r10', 'r11', 'r12', 'sp', 'lr', 'pc'
 ]
 
-MCALLS_FILE = "./scripts/mcalls"
+script_dir = os.path.dirname(os.path.abspath(__file__))
+MCALLS_FILE = os.path.join(script_dir, "mcalls")
 
 
 def load_mcall_names():

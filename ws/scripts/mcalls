@@ -1,5 +1,6 @@
 copy_vector_table
 priv_transition
+mpu_select_region
 hijack_vectors
 unpriv_transition
 hook_entry_hook

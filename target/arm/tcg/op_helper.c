@@ -312,6 +312,13 @@ void HELPER(cortexm_st)(CPUARMState *env, void * addr, uint32_t val) {
     cpu_stl_data(env, (unsigned int) (uintptr_t)addr, val);
 }
 
+void HELPER(arm_log_fp)(CPUARMState *env, void * buffer, void * index, uint32_t reg) {
+	uint16_t * index_ptr = index;
+	uint64_t * buffer_ptr = buffer;
+	buffer_ptr[*index_ptr] = *aa32_vfp_dreg(env, reg); 
+	*index_ptr += 8;
+}
+
 void HELPER(check_bxj_trap)(CPUARMState *env, uint32_t rm)
 {
     /*

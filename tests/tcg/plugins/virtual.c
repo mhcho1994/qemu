@@ -464,6 +464,7 @@ int counter;
 
 
 static void raiseirq(unsigned int cpu_index, void *udata);
+static void pulseirq(unsigned int cpu_index, void *udata);
 static void updatepc(unsigned int cpu_index, void *udata);
 static void updatereg(unsigned int cpu_index, void *udata);
 static void updatemem(unsigned int cpu_index, void *udata);
@@ -524,6 +525,7 @@ cb_entry_t cb_registry[] = {
 	{ "updatemem", updatemem},
 	{ "randstate", randstate},
     { "raiseirq", raiseirq },
+	{ "pulseirq", pulseirq },
 	{ "dumplog", dumplogger},
 	{ "dyninst", dyninst},
 	{ "dyninst_lib", dyninst_lib},
@@ -906,6 +908,10 @@ static void dumplogger(unsigned int cpu_index, void *udata) {
 
 static void raiseirq(unsigned int cpu_index, void *udata){
 	qemu_plugin_raise_irq(15);
+}
+
+static void pulseirq(unsigned int cpu_index, void *udata){
+    qemu_plugin_pulse_irq(15);
 }
 
 static void updatemem(unsigned int cpu_index, void *udata) {
@@ -1293,7 +1299,8 @@ QEMU_PLUGIN_EXPORT int qemu_plugin_install(qemu_plugin_id_t id,
 {
     Py_Finalize();
 
-    //Register QEMU-API Module
+    //TODO: Initialize lazily
+	// Register QEMU-API Module
     PyImport_AppendInittab("qemuapi", PyInit_emb);
 
     const char *filename= get_arg("detour", argc, argv);

@@ -464,7 +464,14 @@ extern void raise_irq(CPUState *cs, int irq_num);
 void qemu_plugin_raise_irq(int irq) {
 	g_assert(current_cpu);
 
-	raise_irq(current_cpu, irq);  // Raise IRQ 5
+	raise_irq(current_cpu, irq); 
+}
+
+extern void pulse_irq(CPUState *cs, int irq_num);
+void qemu_plugin_pulse_irq(int irq) {
+    g_assert(current_cpu);
+
+    pulse_irq(current_cpu, irq);  
 }
 
 void qemu_plugin_set_register(uint8_t *mem_buf, int reg)

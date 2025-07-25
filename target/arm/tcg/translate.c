@@ -204,7 +204,8 @@ void update_reg(int reg, int target) {
 }
 void log_reg(uint8_t * buffer, uint16_t * index, int reg);
 void log_reg(uint8_t * buffer, uint16_t * index, int reg) {
-    TCGv_i32 t= cpu_R[reg];
+	if (reg < 16) {
+	TCGv_i32 t= cpu_R[reg];
 	
 	TCGv_ptr ptr = tcg_constant_ptr((intptr_t)buffer);
     TCGv_ptr index_t =tcg_constant_ptr((intptr_t)index);
@@ -230,6 +231,15 @@ void log_reg(uint8_t * buffer, uint16_t * index, int reg) {
     tcg_temp_free_ptr(ptr);
     tcg_temp_free_ptr(index_t);
 	tcg_temp_free_ptr(tmp_ptr);
+	} else {
+			//log fpu
+			TCGv_ptr buffer_ptr = tcg_constant_ptr((intptr_t)buffer);
+            TCGv_ptr index_ptr = tcg_constant_ptr((intptr_t) index);
+			TCGv_i32 tmp = tcg_constant_i32(reg - 26);
+
+			// Call helper: pass tmp (result) and addr_ptr (address)
+		    gen_helper_arm_log_fp(tcg_env, buffer_ptr, index_ptr, tmp);
+	}
 }
 
 #if 0
