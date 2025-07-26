@@ -27,4 +27,7 @@ b vcpu_insn_exec_before
 
 #run  -machine olimex-stm32-h405 -monitor null -serial stdio -nographic -nographic -gdb tcp::1235 -S
 
-run -machine cortexm4,memory-backend=ram0 -object memory-backend-file,id=ram0,mem-path=/dev/shm/my_m4_ram2,size=1G,share=on -nographic -S -monitor telnet:127.0.0.1:4444,server,nowait -gdb tcp::1235 -kernel ../ws/RTOSDemo.axf 
+#run -machine cortexm4,memory-backend=ram0 -object memory-backend-file,id=ram0,mem-path=/dev/shm/my_m4_ram2,size=1G,share=on -nographic -S -monitor telnet:127.0.0.1:4444,server,nowait -gdb tcp::1235 -kernel ../ws/RTOSDemo.axf
+
+
+run -machine cortexm4,memory-backend=ram0 -monitor telnet:127.0.0.1:4444,server,nowait -object memory-backend-file,id=ram0,mem-path=/dev/shm/my_m4_ram3,size=512M,share=on -object memory-backend-file,id=ram1,mem-path=/dev/shm/my_m4_ram,size=512K,share=on -global cortexm4-soc.shram_backend=ram1 -S -nographic

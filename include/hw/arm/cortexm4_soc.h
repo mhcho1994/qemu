@@ -47,8 +47,8 @@ struct CORTEXM4State {
     MemoryRegion flash;
     MemoryRegion flash_alias;
 
-	MemoryRegion *ram_backend;
-	MemoryRegion *shram_backend;
+	HostMemoryBackend * ram_backend;
+	HostMemoryBackend * shram_backend;
 
     Clock *sysclk;
     Clock *refclk;

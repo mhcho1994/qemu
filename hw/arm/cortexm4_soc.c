@@ -104,6 +104,10 @@ static void cortexm4_soc_realize(DeviceState *dev_soc, Error **errp)
 	memory_region_add_subregion(system_memory, 0x20000000, ram);
 #endif 
 
+	if (s->shram_backend) {
+			memory_region_add_subregion(system_memory, 0x3F800000, &s->shram_backend->mr);
+	}
+
 
 
     armv7m = DEVICE(&s->armv7m);
@@ -130,6 +134,12 @@ static void cortexm4_soc_class_init(ObjectClass *klass, const void *data)
     DeviceClass *dc = DEVICE_CLASS(klass);
 
     dc->realize = cortexm4_soc_realize;
+
+	object_class_property_add_link(klass, "shram_backend",
+    TYPE_MEMORY_BACKEND,
+    offsetof(CORTEXM4State, shram_backend),
+    qdev_prop_allow_set_link_before_realize,
+    0);
 
 }
 
