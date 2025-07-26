@@ -29,6 +29,8 @@
 #include "qemu/error-report.h"
 #include "hw/arm/cortexm4_soc.h"
 #include "hw/arm/boot.h"
+#include "qemu/units.h"
+#include "system/address-spaces.h"
 
 /* olimex-stm32-h405 implementation is derived from netduinoplus2 */
 
@@ -39,7 +41,6 @@ static void cortexm4_init(MachineState *machine)
 {
     DeviceState *dev;
     Clock *sysclk;
-
     /* This clock doesn't need migration because it is fixed-frequency */
     sysclk = clock_new(OBJECT(machine), "SYSCLK");
     clock_set_hz(sysclk, SYSCLK_FRQ);
@@ -48,6 +49,17 @@ static void cortexm4_init(MachineState *machine)
     object_property_add_child(OBJECT(machine), "soc", OBJECT(dev));
     qdev_connect_clock_in(dev, "sysclk", sysclk);
     sysbus_realize_and_unref(SYS_BUS_DEVICE(dev), &error_fatal);
+
+	if (!machine->ram) {
+        if (!machine->ram_size) {
+            machine->ram_size = 512 * KiB;
+        }
+
+        error_report("No memdev provided. Use -machine memdev=...");
+        exit(1);
+    }
+
+	memory_region_add_subregion(get_system_memory(), 0x20000000, machine->ram);
 
     armv7m_load_kernel(CORTEXM4_SOC(dev)->armv7m.cpu,
                        machine->kernel_filename,

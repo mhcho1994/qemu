@@ -24,8 +24,10 @@
 
 #include "qemu/osdep.h"
 #include "qapi/error.h"
+#include "qom/object.h"
 #include "system/address-spaces.h"
 #include "system/system.h"
+#include "system/hostmem.h"
 #include "hw/arm/cortexm4_soc.h"
 #include "hw/qdev-clock.h"
 #include "hw/misc/unimp.h"
@@ -47,6 +49,9 @@ static void cortexm4_soc_realize(DeviceState *dev_soc, Error **errp)
     MemoryRegion *system_memory = get_system_memory();
     DeviceState *armv7m;
     Error *err = NULL;
+	
+	//MemoryRegion *ram;
+
 
     /*
      * We use s->refclk internally and only define it with qdev_init_clock_in()
@@ -80,14 +85,25 @@ static void cortexm4_soc_realize(DeviceState *dev_soc, Error **errp)
     }
     memory_region_add_subregion(system_memory, FLASH_BASE_ADDRESS, &s->flash);
     memory_region_add_subregion(system_memory, 0, &s->flash_alias);
+#if 0
 
-    memory_region_init_ram(&s->sram, NULL, "CORTEXM4.sram", SRAM_SIZE,
+    if (s->ram_backend) {
+        ram = s->ram_backend;
+    } else {
+		ram = &s->sram;
+		memory_region_init_ram(&s->sram, NULL, "CORTEXM4.sram", SRAM_SIZE,
                            &err);
-    if (err != NULL) {
-        error_propagate(errp, err);
-        return;
+		if (err != NULL) {
+       		error_propagate(errp, err);
+    	    return;
+	    }
     }
-    memory_region_add_subregion(system_memory, SRAM_BASE_ADDRESS, &s->sram);
+
+
+
+	memory_region_add_subregion(system_memory, 0x20000000, ram);
+#endif 
+
 
 
     armv7m = DEVICE(&s->armv7m);
@@ -100,7 +116,9 @@ static void cortexm4_soc_realize(DeviceState *dev_soc, Error **errp)
     qdev_connect_clock_in(armv7m, "refclk", s->refclk);
     object_property_set_link(OBJECT(&s->armv7m), "memory",
                              OBJECT(system_memory), &error_abort);
+
     if (!sysbus_realize(SYS_BUS_DEVICE(&s->armv7m), errp)) {
+		printf("Error in SOC Relaize \n");
         return;
     }
 
@@ -112,7 +130,7 @@ static void cortexm4_soc_class_init(ObjectClass *klass, const void *data)
     DeviceClass *dc = DEVICE_CLASS(klass);
 
     dc->realize = cortexm4_soc_realize;
-    /* No vmstate or reset required: device has no internal state */
+
 }
 
 static const TypeInfo cortexm4_soc_info = {
