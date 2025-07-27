@@ -105,7 +105,7 @@ static void cortexm4_soc_realize(DeviceState *dev_soc, Error **errp)
 #endif 
 
 	if (s->shram_backend) {
-			memory_region_add_subregion(system_memory, 0x3F800000, &s->shram_backend->mr);
+			memory_region_add_subregion(system_memory, s->shram_baseaddr, &s->shram_backend->mr);
 	}
 
 
@@ -129,17 +129,27 @@ static void cortexm4_soc_realize(DeviceState *dev_soc, Error **errp)
     create_unimplemented_device("generic_io",    0x40000000, 0x1FFFFFFF);
 }
 
+static Property cortexm4_soc_props[] = {
+    DEFINE_PROP_UINT32("ram_baseaddr",   CORTEXM4State, ram_baseaddr,   0x20000000),
+    DEFINE_PROP_UINT32("shram_baseaddr", CORTEXM4State, shram_baseaddr, 0x10000000),
+};
+
+
 static void cortexm4_soc_class_init(ObjectClass *klass, const void *data)
 {
     DeviceClass *dc = DEVICE_CLASS(klass);
 
     dc->realize = cortexm4_soc_realize;
 
+
+
 	object_class_property_add_link(klass, "shram_backend",
     TYPE_MEMORY_BACKEND,
     offsetof(CORTEXM4State, shram_backend),
     qdev_prop_allow_set_link_before_realize,
     0);
+
+	device_class_set_props(dc, cortexm4_soc_props);
 
 }
 

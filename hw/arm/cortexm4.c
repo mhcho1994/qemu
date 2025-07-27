@@ -59,7 +59,7 @@ static void cortexm4_init(MachineState *machine)
         exit(1);
     }
 
-	memory_region_add_subregion(get_system_memory(), 0x20000000, machine->ram);
+	memory_region_add_subregion(get_system_memory(), object_property_get_uint(OBJECT(dev), "ram_baseaddr", &error_fatal), machine->ram);
 
     armv7m_load_kernel(CORTEXM4_SOC(dev)->armv7m.cpu,
                        machine->kernel_filename,

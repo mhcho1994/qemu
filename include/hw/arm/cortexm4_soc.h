@@ -50,6 +50,9 @@ struct CORTEXM4State {
 	HostMemoryBackend * ram_backend;
 	HostMemoryBackend * shram_backend;
 
+	uint32_t ram_baseaddr;
+	uint32_t shram_baseaddr;
+
     Clock *sysclk;
     Clock *refclk;
 };
