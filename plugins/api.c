@@ -89,6 +89,84 @@ int64_t qemu_plugin_host_start_ns(void) {
 	return qemu_clock_get_ns(QEMU_CLOCK_START);
 }
 
+uint64_t qemu_plugin_timer_new_ns(void (*cb)(void *), void *data) {
+	return (uint64_t ) timer_new_ns(QEMU_CLOCK_VIRTUAL, cb, data);
+}
+
+void qemu_plugin_timer_alarm(uint64_t timer_fd, uint64_t delay_ns) {
+	timer_mod_ns((QEMUTimer *)(uintptr_t) timer_fd, delay_ns);
+}
+
+#define MAX_TIMERS 10
+typedef struct {
+    QEMUTimer * timer;
+    uint64_t period_ns;
+    int64_t next_fire_ns;
+	int used;
+	void (*cb)(void *);
+	void *data;
+} PTimerCtx;
+
+PTimerCtx ptimers[MAX_TIMERS];
+
+static PTimerCtx * _timer_allocate(void) {
+    for (int i = 0; i < MAX_TIMERS; i++) {
+        if (!ptimers[i].used) {
+            ptimers[i].used = true;
+            return &ptimers[i];
+        }
+    }
+    return NULL;  // No free slot available
+}
+
+
+#include <inttypes.h>
+static void ptimer_callback(void *opaque) {
+    PTimerCtx *ctx = (PTimerCtx *)opaque;
+
+    if (!ctx->used) {
+        return;  // Timer was freed
+    }
+
+    // Fire user callback
+    if (ctx->cb) {
+        ctx->cb(ctx->data);
+    }
+
+    // Reschedule for next aligned period
+    int64_t now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+
+    // If we're behind, skip missed intervals to stay aligned
+	int missed =-1;
+    while (ctx->next_fire_ns <= now) {
+        ctx->next_fire_ns += ctx->period_ns;
+		missed++;
+    }
+
+	if (missed) {
+			printf("⚠️  Missed %d alarm(s)! Now: %" PRId64 ", Next: %" PRId64 "\n",
+               missed , now, ctx->next_fire_ns);
+	}
+    timer_mod_ns(ctx->timer, ctx->next_fire_ns);
+}
+
+uint64_t qemu_plugin_timer_new_period_ns(void (*cb)(void *), void *data, uint64_t period) {
+	PTimerCtx * ctx = _timer_allocate();
+	if (ctx) {
+	    ctx->timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, ptimer_callback, ctx);
+		ctx->data = data;
+		ctx->cb =cb;
+		ctx->period_ns = period;
+		ctx->next_fire_ns = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) + ctx->period_ns;
+		timer_mod_ns(ctx->timer, ctx->next_fire_ns);
+	} else {
+		printf("Too many timers requested, i will die now");
+		exit(1);
+	}
+
+	return (uint64_t) (ctx->timer);
+}
+
 void qemu_plugin_register_vcpu_tb_exec_cb(struct qemu_plugin_tb *tb,
                                           qemu_plugin_vcpu_udata_cb_t cb,
                                           enum qemu_plugin_cb_flags flags,

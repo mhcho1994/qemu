@@ -238,6 +238,16 @@ void qemu_plugin_register_vcpu_idle_cb(qemu_plugin_id_t id,
 QEMU_PLUGIN_API
 int64_t qemu_plugin_host_start_ns(void);
 
+
+QEMU_PLUGIN_API
+uint64_t qemu_plugin_timer_new_ns(void (*cb)(void *), void *data);
+
+QEMU_PLUGIN_API
+void qemu_plugin_timer_alarm(uint64_t timer_fd, uint64_t delay_ns);
+
+QEMU_PLUGIN_API
+uint64_t qemu_plugin_timer_new_period_ns(void (*cb)(void *), void *data, uint64_t period);
+
 /**
  * qemu_plugin_register_vcpu_resume_cb() - register a vCPU resume callback
  * @id: plugin ID

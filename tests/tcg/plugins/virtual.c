@@ -473,6 +473,7 @@ static void dumplogger(unsigned int cpu_index, void *udata);
 static void dyninst(unsigned int cpu_index, void *udata);
 static void dyninst_lib(unsigned int cpu_index, void *udata);
 static void fastdyn_callback(unsigned int cpu_index, void *udata);
+static void timer_start(unsigned int cpu_index, void *udata);
 PyMODINIT_FUNC PyInit_emb(void);
 uint32_t qemu_get_register(int reg);
 uint32_t qemu_get_register(int reg)
@@ -528,9 +529,26 @@ cb_entry_t cb_registry[] = {
 	{ "pulseirq", pulseirq },
 	{ "dumplog", dumplogger},
 	{ "dyninst", dyninst},
+	{ "timer_start", timer_start},
 	{ "dyninst_lib", dyninst_lib},
 	{ "fastdyn_callback", fastdyn_callback},
 };
+
+
+static void my_timer_callback(void *opaque) {
+    printf("✅ Timer fired! Data: %s\n", (const char *)opaque);
+}
+static void timer_start(unsigned int cpu_index, void *udata) {
+	const char *msg = "Hello from QEMU timer!";
+#if 0
+	//One shot
+	uint64_t timer = qemu_plugin_timer_new_ns(my_timer_callback, (void *)msg);
+	qemu_plugin_timer_alarm(timer, 1e6);  // fire after 1 second
+#else 
+	//Periodic
+	qemu_plugin_timer_new_period_ns(my_timer_callback, (void *)msg, 1e6);
+#endif 
+}
 
 #define MAX_FILENAME_LEN 256
 
