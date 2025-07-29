@@ -474,6 +474,7 @@ static void dyninst(unsigned int cpu_index, void *udata);
 static void dyninst_lib(unsigned int cpu_index, void *udata);
 static void fastdyn_callback(unsigned int cpu_index, void *udata);
 static void timer_start(unsigned int cpu_index, void *udata);
+static void start_budgeting(unsigned int cpu_index, void *udata);
 PyMODINIT_FUNC PyInit_emb(void);
 uint32_t qemu_get_register(int reg);
 uint32_t qemu_get_register(int reg)
@@ -530,28 +531,19 @@ cb_entry_t cb_registry[] = {
 	{ "dumplog", dumplogger},
 	{ "dyninst", dyninst},
 	{ "timer_start", timer_start},
-	{ "start_budgeting", start_budgeting}.
+	{ "start_budgeting", start_budgeting},
 	{ "dyninst_lib", dyninst_lib},
 	{ "fastdyn_callback", fastdyn_callback},
 };
-#if 0
-static uint64_t old_time = 0;
-static uint64_t timer;
+
 static void my_timer_callback(void *opaque) {
-	uint64_t new_target = 0;
     printf("Virtual Clock: %li\n", qemu_plugin_get_virtual_timer());
-	new_target = qemu_plugin_wait_for_budget();
-    new_target = old_time - new_target;
-    old_time = new_target;
-	qemu_plugin_timer_alarm(timer,new_target);
 }
-#endif 
 static void timer_start(unsigned int cpu_index, void *udata) {
 	const char *msg = "Hello from QEMU timer!";
-	uint64_t new_target = 0;
 #if 01
 	//One shot
-	timer = qemu_plugin_timer_new_ns(my_timer_callback, (void *)msg);
+	int timer = qemu_plugin_timer_new_ns(my_timer_callback, (void *)msg);
 	qemu_plugin_timer_alarm(timer, 1e6);
 #else 
 	//Periodic
