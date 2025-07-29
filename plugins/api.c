@@ -44,6 +44,7 @@
 #include "exec/target_page.h"
 #include "exec/translation-block.h"
 #include "exec/translator.h"
+#include "system/runstate.h"
 #include "disas/disas.h"
 #include "plugin.h"
 #include "elf.h"
@@ -89,6 +90,66 @@ int64_t qemu_plugin_host_start_ns(void) {
 	return qemu_clock_get_ns(QEMU_CLOCK_START);
 }
 
+
+void qemu_plugin_pause_vm(void) {
+	vm_stop(RUN_STATE_PAUSED);
+}
+
+extern QemuCond budget_cond;
+extern QemuMutex budget_lock;
+extern uint64_t total_budget;
+extern int budget_init;
+extern void cpu_disable_ticks(void);
+extern void cpu_enable_ticks(void);
+//extern bool bql_locked(void);
+//extern void bql_unlock(void);
+//extern void bql_lock(void);
+uint64_t qemu_plugin_wait_for_budget(void) {
+#if 0
+		int locked =0;
+    if (!bql_locked()) {
+        bql_lock();
+        locked = 1;
+    }
+	cpu_disable_ticks();
+	if (locked) {
+        bql_unlock();
+    }
+	uint64_t next_time;
+	if (!budget_init) {
+		qemu_mutex_init(&budget_lock);
+		qemu_cond_init(&budget_cond);
+		total_budget = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+		budget_init = 1;
+	}
+	if (!locked) {
+			bql_unlock();
+	}
+    // Lock and wait for new budget
+    qemu_mutex_lock(&budget_lock);
+    while (qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) >= total_budget) {
+        qemu_cond_wait(&budget_cond, &budget_lock); 
+    }
+
+	if (!bql_locked()) {
+		bql_lock();
+	}
+
+    next_time = total_budget;
+    qemu_mutex_unlock(&budget_lock);
+	locked =0;
+    if (!bql_locked()) {
+        bql_lock();
+        locked = 1;
+    }
+	cpu_enable_ticks();
+	    if (locked) {
+        bql_unlock();
+    }
+#endif 
+	qemu_system_vmstop_request(RUN_STATE_PAUSED); 
+	return 1000;
+}
 uint64_t qemu_plugin_timer_new_ns(void (*cb)(void *), void *data) {
 	return (uint64_t ) timer_new_ns(QEMU_CLOCK_VIRTUAL, cb, data);
 }

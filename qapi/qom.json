@@ -73,6 +73,38 @@
   'returns': [ 'ObjectPropertyInfo' ],
   'allow-preconfig': true }
 
+
+##
+# @Budget:
+#
+# @totalbudget: current_budget
+#
+# Since: 1.2
+##
+{ 'struct': 'Budget', 
+  'data': { 'totalbudget': 'uint64' } }
+##
+# @run-for:
+#
+# This command will add execution budget to current qemu device.
+# 
+# @budget: The amount of budget we are adding to the machine.
+#
+# Returns: how much we have added to the budget so far.
+#           
+# Since: 1.2
+#
+# .. qmp-example::
+#
+#     -> { "execute": "run-for",
+#          "arguments": { "budget": 1000 } }
+#     <- { "return": 1000}
+##
+{ 'command': 'run-for',
+  'data': { 'budget': 'uint64' },
+  'returns': 'Budget',
+  'allow-preconfig': true }
+
 ##
 # @qom-get:
 #

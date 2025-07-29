@@ -243,6 +243,13 @@ QEMU_PLUGIN_API
 uint64_t qemu_plugin_timer_new_ns(void (*cb)(void *), void *data);
 
 QEMU_PLUGIN_API
+uint64_t qemu_plugin_wait_for_budget(void);
+
+
+QEMU_PLUGIN_API
+void qemu_plugin_pause_vm(void);
+
+QEMU_PLUGIN_API
 void qemu_plugin_timer_alarm(uint64_t timer_fd, uint64_t delay_ns);
 
 QEMU_PLUGIN_API

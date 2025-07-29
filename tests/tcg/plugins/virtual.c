@@ -534,16 +534,26 @@ cb_entry_t cb_registry[] = {
 	{ "fastdyn_callback", fastdyn_callback},
 };
 
-
+static uint64_t old_time = 0;
+static uint64_t timer;
 static void my_timer_callback(void *opaque) {
-    printf("✅ Timer fired! Data: %s\n", (const char *)opaque);
+	uint64_t new_target = 0;
+    printf("Virtual Clock: %li\n", qemu_plugin_get_virtual_timer());
+	new_target = qemu_plugin_wait_for_budget();
+    new_target = old_time - new_target;
+    old_time = new_target;
+	qemu_plugin_timer_alarm(timer,new_target);
 }
 static void timer_start(unsigned int cpu_index, void *udata) {
 	const char *msg = "Hello from QEMU timer!";
-#if 0
+	uint64_t new_target = 0;
+#if 01
 	//One shot
-	uint64_t timer = qemu_plugin_timer_new_ns(my_timer_callback, (void *)msg);
-	qemu_plugin_timer_alarm(timer, 1e6);  // fire after 1 second
+	timer = qemu_plugin_timer_new_ns(my_timer_callback, (void *)msg);
+	new_target = qemu_plugin_wait_for_budget();
+	new_target = old_time - new_target;
+	old_time = new_target;
+	qemu_plugin_timer_alarm(timer,new_target);
 #else 
 	//Periodic
 	qemu_plugin_timer_new_period_ns(my_timer_callback, (void *)msg, 1e6);
