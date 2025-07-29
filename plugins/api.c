@@ -92,63 +92,57 @@ int64_t qemu_plugin_host_start_ns(void) {
 
 
 void qemu_plugin_pause_vm(void) {
-	vm_stop(RUN_STATE_PAUSED);
+	qemu_system_vmstop_request(RUN_STATE_PAUSED);
 }
 
-extern QemuCond budget_cond;
-extern QemuMutex budget_lock;
-extern uint64_t total_budget;
-extern int budget_init;
-extern void cpu_disable_ticks(void);
-extern void cpu_enable_ticks(void);
+typedef struct BudgetControl {
+    QemuCond cond;
+    QemuMutex lock;
+    uint64_t total_budget;
+    int budget_init;
+    QEMUTimer *budget_timer;
+	QEMUTimerCB * cb;
+	RunState vm_old_state;
+} BudgetControl;
+
+extern BudgetControl bc_tcb;
+
 //extern bool bql_locked(void);
 //extern void bql_unlock(void);
 //extern void bql_lock(void);
+void budget_exhausted(void * arg);
+void budget_exhausted(void * arg) {
+	BudgetControl * bc = (BudgetControl *) arg;
+
+	qemu_mutex_lock(&bc->lock);
+	uint64_t ts = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+	if (ts >= bc->total_budget) {
+		if (runstate_get() != RUN_STATE_PAUSED) {
+			bc->vm_old_state = runstate_get();
+    	    qemu_system_vmstop_request(RUN_STATE_PAUSED);
+			printf("Stopping vm at %ld \n", ts);
+		}
+		//Try to account for drift
+		bc->total_budget = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+    }
+    else {
+		vm_resume(bc->vm_old_state);
+		printf("See you in %ld\n", bc->total_budget);
+        timer_mod_ns(bc->budget_timer, bc->total_budget); 
+    }
+
+	qemu_mutex_unlock(&bc->lock);
+}
 uint64_t qemu_plugin_wait_for_budget(void) {
-#if 0
-		int locked =0;
-    if (!bql_locked()) {
-        bql_lock();
-        locked = 1;
-    }
-	cpu_disable_ticks();
-	if (locked) {
-        bql_unlock();
-    }
-	uint64_t next_time;
-	if (!budget_init) {
-		qemu_mutex_init(&budget_lock);
-		qemu_cond_init(&budget_cond);
-		total_budget = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
-		budget_init = 1;
+	if (!bc_tcb.budget_init) {
+		qemu_mutex_init(&bc_tcb.lock);
+		qemu_cond_init(&bc_tcb.cond);
+		bc_tcb.cb = budget_exhausted;
+		bc_tcb.budget_timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, budget_exhausted, &bc_tcb);
+		bc_tcb.budget_init = 1;
 	}
-	if (!locked) {
-			bql_unlock();
-	}
-    // Lock and wait for new budget
-    qemu_mutex_lock(&budget_lock);
-    while (qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) >= total_budget) {
-        qemu_cond_wait(&budget_cond, &budget_lock); 
-    }
-
-	if (!bql_locked()) {
-		bql_lock();
-	}
-
-    next_time = total_budget;
-    qemu_mutex_unlock(&budget_lock);
-	locked =0;
-    if (!bql_locked()) {
-        bql_lock();
-        locked = 1;
-    }
-	cpu_enable_ticks();
-	    if (locked) {
-        bql_unlock();
-    }
-#endif 
-	qemu_system_vmstop_request(RUN_STATE_PAUSED); 
-	return 1000;
+	budget_exhausted(&bc_tcb);
+	return 0;
 }
 uint64_t qemu_plugin_timer_new_ns(void (*cb)(void *), void *data) {
 	return (uint64_t ) timer_new_ns(QEMU_CLOCK_VIRTUAL, cb, data);

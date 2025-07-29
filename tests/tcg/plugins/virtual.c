@@ -533,7 +533,7 @@ cb_entry_t cb_registry[] = {
 	{ "dyninst_lib", dyninst_lib},
 	{ "fastdyn_callback", fastdyn_callback},
 };
-
+#if 0
 static uint64_t old_time = 0;
 static uint64_t timer;
 static void my_timer_callback(void *opaque) {
@@ -544,16 +544,15 @@ static void my_timer_callback(void *opaque) {
     old_time = new_target;
 	qemu_plugin_timer_alarm(timer,new_target);
 }
+#endif 
 static void timer_start(unsigned int cpu_index, void *udata) {
+#if 0
 	const char *msg = "Hello from QEMU timer!";
 	uint64_t new_target = 0;
+#endif 
 #if 01
 	//One shot
-	timer = qemu_plugin_timer_new_ns(my_timer_callback, (void *)msg);
-	new_target = qemu_plugin_wait_for_budget();
-	new_target = old_time - new_target;
-	old_time = new_target;
-	qemu_plugin_timer_alarm(timer,new_target);
+	qemu_plugin_wait_for_budget();
 #else 
 	//Periodic
 	qemu_plugin_timer_new_period_ns(my_timer_callback, (void *)msg, 1e6);

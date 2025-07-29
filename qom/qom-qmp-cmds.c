@@ -45,26 +45,36 @@ static Object *qom_resolve_path(const char *path, Error **errp)
     return obj;
 }
 
-QemuCond budget_cond;
-QemuMutex budget_lock;
-uint64_t total_budget;
-int budget_init;
+typedef struct BudgetControl {
+    QemuCond cond;
+    QemuMutex lock;
+    uint64_t total_budget;
+    int budget_init;
+    QEMUTimer *budget_timer;
+    QEMUTimerCB * cb;
+} BudgetControl;
+
+BudgetControl bc_tcb;
+extern void budget_exhausted(void *);
+
 Budget *qmp_run_for(uint64_t budget, Error **errp) {
 	Budget * total;
 
-	if (!budget_init) {
-        qemu_mutex_init(&budget_lock);
-        qemu_cond_init(&budget_cond);
-		budget_init = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
-		budget_init = 1;
+	//TODO: Potential race in init
+	if (!bc_tcb.budget_init) {
+        qemu_mutex_init(&bc_tcb.lock);
+        qemu_cond_init(&bc_tcb.cond);
+        bc_tcb.cb = budget_exhausted;
+        bc_tcb.budget_timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, budget_exhausted, &bc_tcb);
+        bc_tcb.budget_init = 1;
     }
 
 	total = g_new0(Budget, 1);
-    qemu_mutex_lock(&budget_lock);
-	total_budget += budget;
-	total->totalbudget = total_budget;
-    qemu_cond_signal(&budget_cond); // Wake up timer_cb
-    qemu_mutex_unlock(&budget_lock);
+	qemu_mutex_lock(&bc_tcb.lock);
+	bc_tcb.total_budget += budget;
+	qemu_mutex_unlock(&bc_tcb.lock);
+	bc_tcb.cb(&bc_tcb);
+	total->totalbudget = bc_tcb.total_budget;
 
 	return total;
 }
