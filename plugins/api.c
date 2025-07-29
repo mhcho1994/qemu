@@ -107,9 +107,6 @@ typedef struct BudgetControl {
 
 extern BudgetControl bc_tcb;
 
-//extern bool bql_locked(void);
-//extern void bql_unlock(void);
-//extern void bql_lock(void);
 void budget_exhausted(void * arg);
 void budget_exhausted(void * arg) {
 	BudgetControl * bc = (BudgetControl *) arg;

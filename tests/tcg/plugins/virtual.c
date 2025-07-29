@@ -530,6 +530,7 @@ cb_entry_t cb_registry[] = {
 	{ "dumplog", dumplogger},
 	{ "dyninst", dyninst},
 	{ "timer_start", timer_start},
+	{ "start_budgeting", start_budgeting}.
 	{ "dyninst_lib", dyninst_lib},
 	{ "fastdyn_callback", fastdyn_callback},
 };
@@ -546,18 +547,23 @@ static void my_timer_callback(void *opaque) {
 }
 #endif 
 static void timer_start(unsigned int cpu_index, void *udata) {
-#if 0
 	const char *msg = "Hello from QEMU timer!";
 	uint64_t new_target = 0;
-#endif 
 #if 01
 	//One shot
-	qemu_plugin_wait_for_budget();
+	timer = qemu_plugin_timer_new_ns(my_timer_callback, (void *)msg);
+	qemu_plugin_timer_alarm(timer, 1e6);
 #else 
 	//Periodic
 	qemu_plugin_timer_new_period_ns(my_timer_callback, (void *)msg, 1e6);
 #endif 
 }
+
+static void start_budgeting(unsigned int cpu_index, void *udata) {
+	qemu_plugin_wait_for_budget();
+}
+
+
 
 #define MAX_FILENAME_LEN 256
 
