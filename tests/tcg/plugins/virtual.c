@@ -1324,6 +1324,8 @@ QEMU_PLUGIN_EXPORT int qemu_plugin_install(qemu_plugin_id_t id,
 {
     Py_Finalize();
 
+	qemu_plugin_vmstate();
+
     //TODO: Initialize lazily
 	// Register QEMU-API Module
     PyImport_AppendInittab("qemuapi", PyInit_emb);

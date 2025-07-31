@@ -28,6 +28,8 @@
 #include "qemu/timer.h"
 #include "qom/object_interfaces.h"
 #include "qom/qom-qobject.h"
+#include "system/runstate.h"
+#include "migration/vmstate.h"
 
 static Object *qom_resolve_path(const char *path, Error **errp)
 {
@@ -50,23 +52,69 @@ typedef struct BudgetControl {
     QemuMutex lock;
     uint64_t total_budget;
     int budget_init;
-    QEMUTimer *budget_timer;
+    QEMUTimer budget_timer;
     QEMUTimerCB * cb;
+	RunState vm_old_state;
 } BudgetControl;
 
-BudgetControl bc_tcb;
 extern void budget_exhausted(void *);
+BudgetControl bc_tcb;
+static int bc_tcb_post_load(void *opaque, int version_id)
+{
+    BudgetControl *ctrl = opaque;
+
+    qemu_cond_init(&ctrl->cond);
+    qemu_mutex_init(&ctrl->lock);
+
+   	ctrl->cb = budget_exhausted;
+
+    return 0;
+}
+
+static int bc_tcb_pre_load(void *opaque)
+{
+	timer_init_ns(&bc_tcb.budget_timer, QEMU_CLOCK_VIRTUAL, budget_exhausted, &bc_tcb);
+
+    return 0;
+}
+
+static const VMStateDescription vmstate_budget_control = {
+    .name = "budget_control",
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .pre_load = bc_tcb_pre_load,
+    .post_load = bc_tcb_post_load,
+    .fields = (VMStateField[]) {
+        VMSTATE_UINT64(total_budget, BudgetControl),
+        VMSTATE_INT32(budget_init, BudgetControl),
+        VMSTATE_U32(vm_old_state, BudgetControl),
+		VMSTATE_TIMER(budget_timer, BudgetControl),
+        VMSTATE_END_OF_LIST()
+    }
+};
+
+
+void plugin_vmstate_budget(void);
+void plugin_vmstate_budget(void) {
+	vmstate_register(NULL, 0, &vmstate_budget_control, &bc_tcb);
+}
+void init_budget_system(void);
+void init_budget_system(void) {
+		qemu_mutex_init(&bc_tcb.lock);
+        qemu_cond_init(&bc_tcb.cond);
+        bc_tcb.cb = budget_exhausted;
+        timer_init_ns(&bc_tcb.budget_timer, QEMU_CLOCK_VIRTUAL, budget_exhausted, &bc_tcb);
+        bc_tcb.budget_init = 1;
+        //TODO: Hack read from snaphot maybe.
+        bc_tcb.vm_old_state = RUN_STATE_RUNNING;
+}
 
 Budget *qmp_run_for(uint64_t budget, Error **errp) {
 	Budget * total;
 
 	//TODO: Potential race in init
 	if (!bc_tcb.budget_init) {
-        qemu_mutex_init(&bc_tcb.lock);
-        qemu_cond_init(&bc_tcb.cond);
-        bc_tcb.cb = budget_exhausted;
-        bc_tcb.budget_timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, budget_exhausted, &bc_tcb);
-        bc_tcb.budget_init = 1;
+		init_budget_system();
     }
 
 	total = g_new0(Budget, 1);

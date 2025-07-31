@@ -100,7 +100,7 @@ typedef struct BudgetControl {
     QemuMutex lock;
     uint64_t total_budget;
     int budget_init;
-    QEMUTimer *budget_timer;
+    QEMUTimer budget_timer;
 	QEMUTimerCB * cb;
 	RunState vm_old_state;
 } BudgetControl;
@@ -110,6 +110,7 @@ extern BudgetControl bc_tcb;
 void budget_exhausted(void * arg);
 void budget_exhausted(void * arg) {
 	BudgetControl * bc = (BudgetControl *) arg;
+	printf("Budgeting time!!\n");
 
 	qemu_mutex_lock(&bc->lock);
 	uint64_t ts = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
@@ -125,21 +126,24 @@ void budget_exhausted(void * arg) {
     else {
 		vm_resume(bc->vm_old_state);
 		printf("See you in %ld\n", bc->total_budget);
-        timer_mod_ns(bc->budget_timer, bc->total_budget); 
+        timer_mod_ns(&bc->budget_timer, bc->total_budget); 
     }
 
 	qemu_mutex_unlock(&bc->lock);
 }
+
+extern void init_budget_system(void);
 uint64_t qemu_plugin_wait_for_budget(void) {
 	if (!bc_tcb.budget_init) {
-		qemu_mutex_init(&bc_tcb.lock);
-		qemu_cond_init(&bc_tcb.cond);
-		bc_tcb.cb = budget_exhausted;
-		bc_tcb.budget_timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, budget_exhausted, &bc_tcb);
-		bc_tcb.budget_init = 1;
+		init_budget_system();
 	}
 	budget_exhausted(&bc_tcb);
 	return 0;
+}
+
+extern void plugin_vmstate_budget(void);
+void qemu_plugin_vmstate(void) {
+		plugin_vmstate_budget();
 }
 uint64_t qemu_plugin_timer_new_ns(void (*cb)(void *), void *data) {
 	return (uint64_t ) timer_new_ns(QEMU_CLOCK_VIRTUAL, cb, data);
