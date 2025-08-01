@@ -198,26 +198,32 @@ static const MemoryRegionOps stm32f2xx_usart_ops = {
 
 static const Property stm32f2xx_usart_properties[] = {
     DEFINE_PROP_CHR("chardev", STM32F2XXUsartState, chr),
+	 DEFINE_PROP_UINT32("addr", STM32F2XXUsartState, base, 0),
 };
 
 static void stm32f2xx_usart_init(Object *obj)
 {
     STM32F2XXUsartState *s = STM32F2XX_USART(obj);
 
-    sysbus_init_irq(SYS_BUS_DEVICE(obj), &s->irq);
-
     memory_region_init_io(&s->mmio, obj, &stm32f2xx_usart_ops, s,
                           TYPE_STM32F2XX_USART, 0x400);
-    sysbus_init_mmio(SYS_BUS_DEVICE(obj), &s->mmio);
+
 }
 
 static void stm32f2xx_usart_realize(DeviceState *dev, Error **errp)
 {
     STM32F2XXUsartState *s = STM32F2XX_USART(dev);
+	SysBusDevice *busdev = SYS_BUS_DEVICE(dev);
 
     qemu_chr_fe_set_handlers(&s->chr, stm32f2xx_usart_can_receive,
                              stm32f2xx_usart_receive, NULL, NULL,
                              s, NULL, true);
+
+	sysbus_init_irq(busdev, &s->irq);
+	sysbus_init_mmio(busdev, &s->mmio);
+
+	// Map MMIO region at base address
+    sysbus_mmio_map(busdev, 0, s->base);
 }
 
 static void stm32f2xx_usart_class_init(ObjectClass *klass, const void *data)
@@ -227,6 +233,7 @@ static void stm32f2xx_usart_class_init(ObjectClass *klass, const void *data)
     device_class_set_legacy_reset(dc, stm32f2xx_usart_reset);
     device_class_set_props(dc, stm32f2xx_usart_properties);
     dc->realize = stm32f2xx_usart_realize;
+	dc->user_creatable = true;
 }
 
 static const TypeInfo stm32f2xx_usart_info = {

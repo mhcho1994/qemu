@@ -100,6 +100,13 @@ typedef struct qemu_info_t {
     };
 } qemu_info_t;
 
+typedef struct qemu_plugin_snapshotters {
+	int (*pre_load)(void *opaque);
+    int (*post_load)(void *opaque, int version_id);
+    int (*pre_save)(void *opaque);
+    int (*post_save)(void *opaque);
+} qemu_plugin_snapshotters;
+
 /**
  * qemu_plugin_install() - Install a plugin
  * @id: this plugin's opaque ID

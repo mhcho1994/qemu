@@ -79,6 +79,8 @@ static void cortexm4_machine_init(MachineClass *mc)
 
     /* SRAM pre-allocated as part of the SoC instantiation */
     mc->default_ram_size = 0;
+
+	machine_class_allow_dynamic_sysbus_dev(mc, "stm32f2xx-usart");
 }
 
 DEFINE_MACHINE("cortexm4", cortexm4_machine_init)

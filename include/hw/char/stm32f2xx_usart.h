@@ -75,5 +75,8 @@ struct STM32F2XXUsartState {
 
     CharBackend chr;
     qemu_irq irq;
+
+	uint32_t base;
+	uint32_t irq_num;
 };
 #endif /* HW_STM32F2XX_USART_H */

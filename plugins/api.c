@@ -140,7 +140,7 @@ uint64_t qemu_plugin_wait_for_budget(void) {
 	budget_exhausted(&bc_tcb);
 	return 0;
 }
-
+//Hook to register loader functions.
 extern void plugin_vmstate_budget(void);
 void qemu_plugin_vmstate(void) {
 		plugin_vmstate_budget();
