@@ -65,6 +65,7 @@ struct STM32F2XXSPIState {
     uint32_t spi_i2spr;
 
     qemu_irq irq;
+	uint32_t addr;
     SSIBus *ssi;
 };
 

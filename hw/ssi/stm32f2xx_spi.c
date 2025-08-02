@@ -27,6 +27,8 @@
 #include "qemu/module.h"
 #include "hw/ssi/stm32f2xx_spi.h"
 #include "migration/vmstate.h"
+#include "hw/qdev-properties.h"
+#include "hw/qdev-properties-system.h"
 
 #ifndef STM_SPI_ERR_DEBUG
 #define STM_SPI_ERR_DEBUG 0
@@ -191,23 +193,40 @@ static const VMStateDescription vmstate_stm32f2xx_spi = {
 static void stm32f2xx_spi_init(Object *obj)
 {
     STM32F2XXSPIState *s = STM32F2XX_SPI(obj);
-    DeviceState *dev = DEVICE(obj);
-
     memory_region_init_io(&s->mmio, obj, &stm32f2xx_spi_ops, s,
                           TYPE_STM32F2XX_SPI, 0x400);
-    sysbus_init_mmio(SYS_BUS_DEVICE(obj), &s->mmio);
+}
 
-    sysbus_init_irq(SYS_BUS_DEVICE(obj), &s->irq);
+static void stm32f2xx_spi_realize(DeviceState *dev, Error **errp) {
+	STM32F2XXSPIState *s = STM32F2XX_SPI(dev);
+    SysBusDevice *busdev = SYS_BUS_DEVICE(dev);
+
+	sysbus_init_mmio(busdev, &s->mmio);
+
+    sysbus_init_irq(busdev, &s->irq);
 
     s->ssi = ssi_create_bus(dev, "ssi");
+
+	// Map MMIO region at base address
+    sysbus_mmio_map(busdev, 0, s->addr);
 }
+
+static const Property stm32f2xx_spi_properties[] = {
+     DEFINE_PROP_UINT32("addr", STM32F2XXSPIState, addr, 0)
+};
 
 static void stm32f2xx_spi_class_init(ObjectClass *klass, const void *data)
 {
     DeviceClass *dc = DEVICE_CLASS(klass);
 
+
     device_class_set_legacy_reset(dc, stm32f2xx_spi_reset);
+	device_class_set_props(dc, stm32f2xx_spi_properties);
+
     dc->vmsd = &vmstate_stm32f2xx_spi;
+	dc->user_creatable = true;
+
+	dc->realize = stm32f2xx_spi_realize;
 }
 
 static const TypeInfo stm32f2xx_spi_info = {
