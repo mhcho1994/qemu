@@ -1428,6 +1428,9 @@ static void stm32l4x5_rcc_realize(DeviceState *dev, Error **errp)
     clock_update_hz(s->sai1_extclk, s->sai1_extclk_frequency);
     clock_update_hz(s->sai2_extclk, s->sai2_extclk_frequency);
     clock_update(s->gnd, 0);
+
+	// Map MMIO region at base address
+    sysbus_mmio_map(SYS_BUS_DEVICE(dev), 0, s->addr);
 }
 
 static const Property stm32l4x5_rcc_properties[] = {
@@ -1437,6 +1440,7 @@ static const Property stm32l4x5_rcc_properties[] = {
         sai1_extclk_frequency, 0),
     DEFINE_PROP_UINT64("sai2_extclk_frequency", Stm32l4x5RccState,
         sai2_extclk_frequency, 0),
+	DEFINE_PROP_UINT32("addr", Stm32l4x5RccState, addr, 0)
 };
 
 static void stm32l4x5_rcc_class_init(ObjectClass *klass, const void *data)
@@ -1450,6 +1454,8 @@ static void stm32l4x5_rcc_class_init(ObjectClass *klass, const void *data)
     device_class_set_props(dc, stm32l4x5_rcc_properties);
     dc->realize = stm32l4x5_rcc_realize;
     dc->vmsd = &vmstate_stm32l4x5_rcc;
+
+	dc->user_creatable = true;
 }
 
 static const TypeInfo stm32l4x5_rcc_types[] = {

@@ -231,6 +231,7 @@ struct Stm32l4x5RccState {
     RccClockMuxState clock_muxes[RCC_NUM_CLOCK_MUX];
 
     qemu_irq irq;
+	uint32_t addr;
     uint64_t hse_frequency;
     uint64_t sai1_extclk_frequency;
     uint64_t sai2_extclk_frequency;
