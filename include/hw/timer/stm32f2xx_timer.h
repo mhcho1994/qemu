@@ -97,6 +97,8 @@ struct STM32F2XXTimerState {
     uint32_t tim_dcr;
     uint32_t tim_dmar;
     uint32_t tim_or;
+
+	uint32_t addr;
 };
 
 #endif /* HW_STM32F2XX_TIMER_H */

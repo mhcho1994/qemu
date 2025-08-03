@@ -28,6 +28,8 @@
 #include "hw/irq.h"
 #include "migration/vmstate.h"
 #include "hw/misc/stm32f4xx_syscfg.h"
+#include "hw/qdev-properties.h"
+#include "hw/qdev-properties-system.h"
 
 static void stm32f4xx_syscfg_reset(DeviceState *dev)
 {
@@ -147,12 +149,25 @@ static const VMStateDescription vmstate_stm32f4xx_syscfg = {
     }
 };
 
+static void stm32f4xx_syscfg_realize(DeviceState *dev, Error **errp) {
+		STM32F4xxSyscfgState *s = STM32F4XX_SYSCFG(dev);
+		SysBusDevice *busdev = SYS_BUS_DEVICE(dev);
+
+		sysbus_init_mmio(busdev, &s->mmio);
+		sysbus_init_irq(busdev, &s->irq);
+		 sysbus_mmio_map(busdev, 0, s->addr);
+}
+
 static void stm32f4xx_syscfg_class_init(ObjectClass *klass, const void *data)
 {
     DeviceClass *dc = DEVICE_CLASS(klass);
 
     device_class_set_legacy_reset(dc, stm32f4xx_syscfg_reset);
     dc->vmsd = &vmstate_stm32f4xx_syscfg;
+
+	dc->realize = stm32f4xx_syscfg_realize;
+
+	dc->user_creatable = true;
 }
 
 static const TypeInfo stm32f4xx_syscfg_info = {

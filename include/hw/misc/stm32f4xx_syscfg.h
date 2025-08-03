@@ -55,6 +55,8 @@ struct STM32F4xxSyscfgState {
 
     qemu_irq irq;
     qemu_irq gpio_out[16];
+
+	uint32_t addr;
 };
 
 #endif

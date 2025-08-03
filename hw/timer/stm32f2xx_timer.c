@@ -301,6 +301,7 @@ static const VMStateDescription vmstate_stm32f2xx_timer = {
 static const Property stm32f2xx_timer_properties[] = {
     DEFINE_PROP_UINT64("clock-frequency", struct STM32F2XXTimerState,
                        freq_hz, 1000000000),
+	DEFINE_PROP_UINT32("addr", struct STM32F2XXTimerState, addr, 0)
 };
 
 static void stm32f2xx_timer_init(Object *obj)
@@ -318,6 +319,9 @@ static void stm32f2xx_timer_realize(DeviceState *dev, Error **errp)
 {
     STM32F2XXTimerState *s = STM32F2XXTIMER(dev);
     s->timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, stm32f2xx_timer_interrupt, s);
+
+	sysbus_mmio_map(SYS_BUS_DEVICE(dev), 0, s->addr);
+
 }
 
 static void stm32f2xx_timer_class_init(ObjectClass *klass, const void *data)
@@ -328,6 +332,8 @@ static void stm32f2xx_timer_class_init(ObjectClass *klass, const void *data)
     device_class_set_props(dc, stm32f2xx_timer_properties);
     dc->vmsd = &vmstate_stm32f2xx_timer;
     dc->realize = stm32f2xx_timer_realize;
+
+	dc->user_creatable = true;
 }
 
 static const TypeInfo stm32f2xx_timer_info = {

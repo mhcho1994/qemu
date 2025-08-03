@@ -28,6 +28,8 @@
 #include "qemu/log.h"
 #include "qemu/module.h"
 #include "hw/adc/stm32f2xx_adc.h"
+#include "hw/qdev-properties.h"
+#include "hw/qdev-properties-system.h"
 
 #ifndef STM_ADC_ERR_DEBUG
 #define STM_ADC_ERR_DEBUG 0
@@ -277,19 +279,39 @@ static void stm32f2xx_adc_init(Object *obj)
 {
     STM32F2XXADCState *s = STM32F2XX_ADC(obj);
 
-    sysbus_init_irq(SYS_BUS_DEVICE(obj), &s->irq);
 
     memory_region_init_io(&s->mmio, obj, &stm32f2xx_adc_ops, s,
                           TYPE_STM32F2XX_ADC, 0x100);
     sysbus_init_mmio(SYS_BUS_DEVICE(obj), &s->mmio);
 }
 
+static void stm32f2xx_adc_realize(DeviceState *dev, Error **errp) {
+
+	STM32F2XXADCState *s = STM32F2XX_ADC(dev);
+    SysBusDevice *busdev = SYS_BUS_DEVICE(dev);
+
+
+	sysbus_mmio_map(busdev, 0, s->addr);
+	sysbus_init_irq(busdev, &s->irq);
+}
+
+
+static const Property stm32f2xx_adc_properties[] = {
+     DEFINE_PROP_UINT32("addr", STM32F2XXADCState, addr, 0)
+};
+
 static void stm32f2xx_adc_class_init(ObjectClass *klass, const void *data)
 {
     DeviceClass *dc = DEVICE_CLASS(klass);
 
     device_class_set_legacy_reset(dc, stm32f2xx_adc_reset);
+	device_class_set_props(dc, stm32f2xx_adc_properties);
+
     dc->vmsd = &vmstate_stm32f2xx_adc;
+
+	dc->user_creatable = true;
+	dc->realize = stm32f2xx_adc_realize;
+
 }
 
 static const TypeInfo stm32f2xx_adc_info = {
