@@ -18,6 +18,12 @@ if not libpython.found()
   error('Required Python library not found (3.10 - 3.15)')
 endif
 
+libhw_dep = declare_dependency(
+  include_directories: include_directories('/data/libhw/include'),
+  link_args: ['/data/libhw/out/libhw.a']
+)
+
+
 if get_option('plugins')
   foreach i : ['bb', 'empty', 'inline', 'insn', 'mem', 'reset', 'syscall', 'virtual']
     if host_os == 'windows'
@@ -29,7 +35,7 @@ if get_option('plugins')
     else
       t += shared_module(i, files(i + '.c'),
                          include_directories: '../../../include/qemu',
-                         dependencies: [glib, python_dep, libpython])
+                         dependencies: [glib, python_dep, libpython, libhw_dep])
     endif
   endforeach
 endif
@@ -39,5 +45,11 @@ if t.length() > 0
 else
   run_target('test-plugins', command: find_program('true'))
 endif
+
+libhw_dep = declare_dependency(
+  include_directories: include_directories('/data/libhw/include'),
+  link_args: ['/data/libhw/out/libhw.a']
+)
+
 
 plugin_modules += t

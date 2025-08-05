@@ -24,6 +24,9 @@ int isdigit(int c);
 #include <string.h>
 #include <ctype.h>
 #include "virtual.h"
+#include <hw.h>
+
+hw_t * hw;
 
 #define MAX_ENTRIES 1024
 #define MAX_LINE_LEN 128
@@ -1305,13 +1308,27 @@ uint64_t my_unimp_read(void *opaque, hwaddr offset, unsigned size) {
 		return 1;
 	}
 #endif
-    return 0x0;
+	unsigned int value_read = 0;
+	unsigned int address = offset + 0x40000000;
+	 int status = 0;
+	status = hw_read32(hw, address, &value_read);
+	if (status != 0) {
+            printf("Error in writing to hw...");
+    }
+    return value_read;
 }
 
 void my_unimp_write(void *opaque, hwaddr offset, uint64_t value, unsigned size);
 void my_unimp_write(void *opaque, hwaddr offset, uint64_t value, unsigned size) {
     DEBUG_LOG("Current pc: %x\n", qemu_get_register(15));
     DEBUG_LOG("Write at offset 0x%" PRIx64 " value 0x%" PRIx64 "\n", offset, value);
+	 int status = 0;
+	unsigned int address = offset + 0x40000000;
+    status = hw_write32(hw, address, (uint32_t)value);
+
+	if (status != 0) {
+			printf("Error in writing to hw...");
+	}
 }
 
 DEV_XPORTER importer = {.read = my_unimp_read,
@@ -1325,6 +1342,8 @@ QEMU_PLUGIN_EXPORT int qemu_plugin_install(qemu_plugin_id_t id,
     Py_Finalize();
 
 	qemu_plugin_vmstate();
+
+	hw = hw_connect("stlink", NULL, 0);
 
     //TODO: Initialize lazily
 	// Register QEMU-API Module
