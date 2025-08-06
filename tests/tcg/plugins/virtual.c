@@ -32,7 +32,7 @@ hw_t * hw;
 #define MAX_LINE_LEN 128
 #define MAX_RULES 256
 
-// #define DEBUG_PRINT
+//#define DEBUG_PRINT
 
 #ifdef DEBUG_PRINT
   #define DEBUG_LOG(fmt, ...) printf("DEBUG: " fmt, ##__VA_ARGS__)
@@ -1291,7 +1291,7 @@ static void print_rules(void) {
 
 
 // #define NRF52840
-#define RA4M1
+#define HW_ONLY
 
 uint64_t my_unimp_read(void *opaque, hwaddr offset, unsigned size);
 uint64_t my_unimp_read(void *opaque, hwaddr offset, unsigned size) {
@@ -1310,26 +1310,39 @@ uint64_t my_unimp_read(void *opaque, hwaddr offset, unsigned size) {
 #endif
 	unsigned int value_read = 0;
 	unsigned int address = offset + 0x40000000;
-	 int status = 0;
+	int status = 0;
+
+	DEBUG_LOG("Attempting read: offset = 0x%" PRIx64 ", address = 0x%08X, size = %u bytes\n",
+              offset, address, size);
+	
 	status = hw_read32(hw, address, &value_read);
 	if (status != 0) {
             printf("Error in writing to hw...");
-    }
+    } else {
+			DEBUG_LOG("Read success: address = 0x%08X, value = 0x%08X\n", address, value_read);
+	}
     return value_read;
 }
 
 void my_unimp_write(void *opaque, hwaddr offset, uint64_t value, unsigned size);
 void my_unimp_write(void *opaque, hwaddr offset, uint64_t value, unsigned size) {
-    DEBUG_LOG("Current pc: %x\n", qemu_get_register(15));
-    DEBUG_LOG("Write at offset 0x%" PRIx64 " value 0x%" PRIx64 "\n", offset, value);
-	 int status = 0;
-	unsigned int address = offset + 0x40000000;
-    status = hw_write32(hw, address, (uint32_t)value);
+    unsigned int address = offset + 0x40000000;
+    int status = 0;
 
-	if (status != 0) {
-			printf("Error in writing to hw...");
-	}
+    DEBUG_LOG("Attempting write: offset = 0x%" PRIx64 ", address = 0x%08X, size = %u bytes, value = 0x%0*" PRIx64 "\n",
+              offset, address, size, size * 2, value);
+
+    status = hw_write32(hw, address, (uint32_t)value);  // Adjust for size if needed
+
+    if (status != 0) {
+        fprintf(stderr, "ERROR: Failed to write %u bytes to address 0x%08X (offset 0x%" PRIx64 ")\n",
+                size, address, offset);
+    } else {
+        DEBUG_LOG("Write success: address = 0x%08X, size = %u, value = 0x%0*" PRIx64 "\n",
+                  address, size, size * 2, value);
+    }
 }
+
 
 DEV_XPORTER importer = {.read = my_unimp_read,
         .write = my_unimp_write};

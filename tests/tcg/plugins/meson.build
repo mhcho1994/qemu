@@ -20,7 +20,7 @@ endif
 
 libhw_dep = declare_dependency(
   include_directories: include_directories('/data/libhw/include'),
-  link_args: ['/data/libhw/out/libhw.a']
+  link_args: ['-L/data/libhw/out', '-lhw']
 )
 
 
