@@ -829,6 +829,7 @@ static bool v7m_push_callee_stack(ARMCPU *cpu, uint32_t lr, bool dotailchain,
     return !stacked_ok;
 }
 
+extern int qemu_plugin_irq_hook(int number);
 static void v7m_exception_taken(ARMCPU *cpu, uint32_t lr, bool dotailchain,
                                 bool ignore_stackfaults)
 {
@@ -844,6 +845,9 @@ static void v7m_exception_taken(ARMCPU *cpu, uint32_t lr, bool dotailchain,
     bool push_failed = false;
 
     armv7m_nvic_get_pending_irq_info(env->nvic, &exc, &targets_secure);
+	
+	//Hook for logging
+    qemu_plugin_irq_hook(exc);
     qemu_log_mask(CPU_LOG_INT, "...taking pending %s exception %d\n",
                   targets_secure ? "secure" : "nonsecure", exc);
 

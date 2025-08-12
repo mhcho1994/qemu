@@ -145,6 +145,18 @@ extern void plugin_vmstate_budget(void);
 void qemu_plugin_vmstate(void) {
 		plugin_vmstate_budget();
 }
+
+
+static void (*irq_cb)(int);
+void qemu_plugin_irq_hook(int number);
+void qemu_plugin_irq_hook(int number) {
+		if (irq_cb) {
+				irq_cb(number);
+		}
+}
+void qemu_plugin_register_irq_hook(void (*cb)(int)) {
+		irq_cb = cb;
+}
 uint64_t qemu_plugin_timer_new_ns(void (*cb)(void *), void *data) {
 	return (uint64_t ) timer_new_ns(QEMU_CLOCK_VIRTUAL, cb, data);
 }
