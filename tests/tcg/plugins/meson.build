@@ -19,8 +19,8 @@ if not libpython.found()
 endif
 
 libhw_dep = declare_dependency(
-  include_directories: include_directories('/data/libhw/include'),
-  link_args: ['-L/data/libhw/out', '-lhw']
+  include_directories: include_directories('../../../include/libhw/include'),
+  link_args: ['-L../../../includelibhw/out', '-lhw']
 )
 
 
@@ -46,10 +46,10 @@ else
   run_target('test-plugins', command: find_program('true'))
 endif
 
-libhw_dep = declare_dependency(
-  include_directories: include_directories('/data/libhw/include'),
-  link_args: ['/data/libhw/out/libhw.a']
-)
+#libhw_dep = declare_dependency(
+#  include_directories: include_directories('/data/libhw/include'),
+#  link_args: ['/data/libhw/out/libhw.a']
+#)
 
 
 plugin_modules += t
