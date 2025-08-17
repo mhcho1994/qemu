@@ -43,6 +43,3 @@
 [submodule "tests/lcitool/libvirt-ci"]
 	path = tests/lcitool/libvirt-ci
 	url = https://gitlab.com/libvirt/libvirt-ci.git
-[submodule "include/libhw"]
-	path = include/libhw
-	url = git@github.com:PSecLab/libhw.git
