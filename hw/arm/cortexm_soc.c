@@ -51,6 +51,14 @@ static void cortexm_soc_realize(DeviceState *dev_soc, Error **errp)
     MemoryRegion *system_memory = get_system_memory();
     DeviceState *armv7m;
     Error *err = NULL;
+
+	if (!ms->cpu_type) {
+			error_setg(errp, "CPU Type not selected");
+			printf("Please pick a CPU type. To find available CPUs, use the following command:\n");
+			printf("qemu-system-arm -cpu help \n");
+			printf("And pick an ARM Cortex M CPU out of the list using: qemu-system-arm -cpu [cpu_name]\n");
+			return;
+	}
 	
 	//MemoryRegion *ram;
 
