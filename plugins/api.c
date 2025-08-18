@@ -48,6 +48,7 @@
 #include "disas/disas.h"
 #include "plugin.h"
 #include "elf.h"
+#include "hw/core/cpu.h"
 
 /* Uninstall and Reset handlers */
 
@@ -595,9 +596,7 @@ static GArray *create_register_handles(GArray *gdbstub_regs)
 
 GArray *qemu_plugin_get_registers(void)
 {
-    g_assert(current_cpu);
-
-    g_autoptr(GArray) regs = gdb_get_register_list(current_cpu);
+    g_autoptr(GArray) regs = gdb_get_register_list(first_cpu);
     return create_register_handles(regs);
 }
 
@@ -608,43 +607,34 @@ int64_t qemu_plugin_get_virtual_timer(void) {
 
 extern void raise_irq(CPUState *cs, int irq_num);
 void qemu_plugin_raise_irq(int irq) {
-	g_assert(current_cpu);
-
-	raise_irq(current_cpu, irq); 
+	raise_irq(first_cpu, irq); 
 }
 
 extern void pulse_irq(CPUState *cs, int irq_num);
 void qemu_plugin_pulse_irq(int irq) {
-    g_assert(current_cpu);
 
-    pulse_irq(current_cpu, irq);  
+    pulse_irq(first_cpu, irq);  
 }
 
 void qemu_plugin_set_register(uint8_t *mem_buf, int reg)
 {
-    g_assert(current_cpu);
-
-    gdb_write_register(current_cpu, mem_buf, reg);
+    gdb_write_register(first_cpu, mem_buf, reg);
 }
 
 int qemu_plugin_write_memory(unsigned long long addr, uint8_t *mem_buf, int len)
 {
-    g_assert(current_cpu);
-
-	return gdb_target_memory_rw_debug(current_cpu, addr, mem_buf, len, true);
+	return gdb_target_memory_rw_debug(first_cpu, addr, mem_buf, len, true);
 }
 
 int qemu_plugin_read_memory(unsigned long long addr, uint8_t *mem_buf, int len)
 {
-    g_assert(current_cpu);
 
-    return gdb_target_memory_rw_debug(current_cpu, addr, mem_buf, len, false);
+    return gdb_target_memory_rw_debug(first_cpu, addr, mem_buf, len, false);
 }
 
 
 bool qemu_plugin_read_memory_vaddr(uint64_t addr, GByteArray *data, size_t len)
 {
-    g_assert(current_cpu);
 
     if (len == 0) {
         return false;
@@ -652,7 +642,7 @@ bool qemu_plugin_read_memory_vaddr(uint64_t addr, GByteArray *data, size_t len)
 
     g_byte_array_set_size(data, len);
 
-    int result = cpu_memory_rw_debug(current_cpu, addr, data->data,
+    int result = cpu_memory_rw_debug(first_cpu, addr, data->data,
                                      data->len, false);
 
     if (result < 0) {
@@ -664,9 +654,7 @@ bool qemu_plugin_read_memory_vaddr(uint64_t addr, GByteArray *data, size_t len)
 
 int qemu_plugin_read_register(struct qemu_plugin_register *reg, GByteArray *buf)
 {
-    g_assert(current_cpu);
-
-    return gdb_read_register(current_cpu, buf, GPOINTER_TO_INT(reg) - 1);
+    return gdb_read_register(first_cpu, buf, GPOINTER_TO_INT(reg) - 1);
 }
 
 struct qemu_plugin_scoreboard *qemu_plugin_scoreboard_new(size_t element_size)

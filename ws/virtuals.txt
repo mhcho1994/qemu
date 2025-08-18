@@ -1,2 +1,1 @@
 0x8003708 debug_log "LED Switching"
-0x800370A raiseirq 15
