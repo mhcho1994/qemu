@@ -478,9 +478,17 @@ static MemTxResult memory_region_read_with_attrs_accessor(MemoryRegion *mr,
                                                           MemTxAttrs attrs)
 {
     uint64_t tmp = 0;
+	int bypass =0;
     MemTxResult r;
 
-    r = mr->ops->read_with_attrs(mr->opaque, addr, &tmp, size, attrs);
+	if (exporter.read) {
+			if (!exporter.read(mr->name, (mr->addr + addr), &tmp, size)) {
+					bypass= 1;
+			}
+	}
+	if (!bypass) {
+	    r = mr->ops->read_with_attrs(mr->opaque, addr, &tmp, size, attrs);
+	}
     if (mr->subpage) {
         trace_memory_region_subpage_read(get_cpu_index(), mr, addr, tmp, size);
     } else if (trace_event_get_state_backends(TRACE_MEMORY_REGION_OPS_READ)) {
@@ -538,6 +546,11 @@ static MemTxResult memory_region_write_with_attrs_accessor(MemoryRegion *mr,
         trace_memory_region_ops_write(get_cpu_index(), mr, abs_addr, tmp, size,
                                       memory_region_name(mr));
     }
+	if (exporter.write) {
+			if (!exporter.write(mr->name, (mr->addr + addr), tmp, size)) {
+					return 0;
+			}
+	}
     return mr->ops->write_with_attrs(mr->opaque, addr, tmp, size, attrs);
 }
 
