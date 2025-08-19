@@ -18,34 +18,15 @@
 #include "qemu/module.h"
 #include "qapi/error.h"
 
-typedef struct unimp_exporter {
-    uint64_t (*read)(void *opaque, hwaddr offset, unsigned size);
-    void (*write)(void *opaque, hwaddr offset, uint64_t value, unsigned size);
-} DEV_XPORTER;
-
-
-static DEV_XPORTER exporter;
-
-void unimp_export_device(void * arg);
-void unimp_export_device(void * arg) {
-	DEV_XPORTER * in_ops = (DEV_XPORTER *) arg;
-	memcpy(&exporter, (uint8_t *)in_ops, sizeof(DEV_XPORTER));
-}
-
 static uint64_t unimp_read(void *opaque, hwaddr offset, unsigned size)
 {
     UnimplementedDeviceState *s = UNIMPLEMENTED_DEVICE(opaque);
 
-	if (exporter.read) {
-		return exporter.read(opaque, offset, size);
-	}
-	else {
 	    qemu_log_mask(LOG_UNIMP, "%s: unimplemented device read  "
         	          "(size %d, offset 0x%0*" HWADDR_PRIx ")\n",
     	              s->name, size, s->offset_fmt_width, offset);
 
 		return 0;
-	}
 }
 
 static void unimp_write(void *opaque, hwaddr offset,
@@ -53,14 +34,10 @@ static void unimp_write(void *opaque, hwaddr offset,
 {
     UnimplementedDeviceState *s = UNIMPLEMENTED_DEVICE(opaque);
 
-	if (exporter.write) {
-		return exporter.write(opaque, offset, value, size);
-	} else {
 	    qemu_log_mask(LOG_UNIMP, "%s: unimplemented device write "
     	              "(size %d, offset 0x%0*" HWADDR_PRIx
         	          ", value 0x%0*" PRIx64 ")\n",
             	      s->name, size, s->offset_fmt_width, offset, size << 1, value);
-	}
 }
 
 static const MemoryRegionOps unimp_ops = {

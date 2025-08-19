@@ -61,6 +61,21 @@ struct AddrRange {
     Int128 size;
 };
 
+typedef struct unimp_exporter {
+    int (*read)(const char * handler, hwaddr addr, uint64_t * data, hwaddr size);
+    int (*write)(const char * handler, hwaddr addr, uint64_t  data, hwaddr size);
+} DEV_XPORTER;
+
+
+static DEV_XPORTER exporter;
+
+void unimp_export_device(void * arg);
+void unimp_export_device(void * arg) {
+    DEV_XPORTER * in_ops = (DEV_XPORTER *) arg;
+    memcpy(&exporter, (uint8_t *)in_ops, sizeof(DEV_XPORTER));
+}
+
+
 static AddrRange addrrange_make(Int128 start, Int128 size)
 {
     return (AddrRange) { start, size };
@@ -432,8 +447,17 @@ static MemTxResult  memory_region_read_accessor(MemoryRegion *mr,
                                                 MemTxAttrs attrs)
 {
     uint64_t tmp;
+	int bypass = 0;
 
-    tmp = mr->ops->read(mr->opaque, addr, size);
+	if (exporter.read) {
+        if (!exporter.read(mr->name, (mr->addr + addr), &tmp, size)) {
+                bypass = 1;
+        }
+    }
+
+	if (!bypass) {
+	    tmp = mr->ops->read(mr->opaque, addr, size);
+	}
     if (mr->subpage) {
         trace_memory_region_subpage_read(get_cpu_index(), mr, addr, tmp, size);
     } else if (trace_event_get_state_backends(TRACE_MEMORY_REGION_OPS_READ)) {
@@ -476,6 +500,7 @@ static MemTxResult memory_region_write_accessor(MemoryRegion *mr,
                                                 uint64_t mask,
                                                 MemTxAttrs attrs)
 {
+	int bypass = 0;
     uint64_t tmp = memory_region_shift_write_access(value, shift, mask);
 
     if (mr->subpage) {
@@ -485,7 +510,14 @@ static MemTxResult memory_region_write_accessor(MemoryRegion *mr,
         trace_memory_region_ops_write(get_cpu_index(), mr, abs_addr, tmp, size,
                                       memory_region_name(mr));
     }
-    mr->ops->write(mr->opaque, addr, tmp, size);
+
+	if (exporter.write) {
+        if (!exporter.write(mr->name, (mr->addr + addr), tmp, size)) {
+               bypass= 1;
+        }
+    }
+	if (!bypass) 
+	    mr->ops->write(mr->opaque, addr, tmp, size);
     return MEMTX_OK;
 }
 
@@ -1478,6 +1510,7 @@ MemTxResult memory_region_dispatch_read(MemoryRegion *mr,
         *pval = unassigned_mem_read(mr, addr, size);
         return MEMTX_DECODE_ERROR;
     }
+
 
     r = memory_region_dispatch_read1(mr, addr, pval, size, attrs);
     adjust_endianness(mr, pval, op);
