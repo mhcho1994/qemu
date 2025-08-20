@@ -1356,7 +1356,7 @@ static bool v7m_push_stack(ARMCPU *cpu)
 
     return !stacked_ok;
 }
-
+extern void qemu_plugin_irqret_hook(int irq_num);
 static void do_v7m_exception_exit(ARMCPU *cpu)
 {
     CPUARMState *env = &cpu->env;
@@ -1403,6 +1403,8 @@ static void do_v7m_exception_exit(ARMCPU *cpu)
     qemu_log_mask(CPU_LOG_INT, "Exception return: magic PC %" PRIx32
                   " previous exception %d\n",
                   excret, env->v7m.exception);
+
+	qemu_plugin_irqret_hook(env->v7m.exception);
 
     if ((excret & R_V7M_EXCRET_RES1_MASK) != R_V7M_EXCRET_RES1_MASK) {
         qemu_log_mask(LOG_GUEST_ERROR, "M profile: zero high bits in exception "

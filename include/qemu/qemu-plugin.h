@@ -256,7 +256,7 @@ QEMU_PLUGIN_API
 uint64_t qemu_plugin_wait_for_budget(void);
 
 QEMU_PLUGIN_API
-void qemu_plugin_register_irq_hook(void (*cb)(int));
+void qemu_plugin_register_irq_hook(void (*cb)(int), void (*cb_end)(int));
 
 
 QEMU_PLUGIN_API

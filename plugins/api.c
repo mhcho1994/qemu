@@ -149,14 +149,17 @@ void qemu_plugin_vmstate(void) {
 
 
 static void (*irq_cb)(int);
+static void (*irq_finish_cb)(int);
 void qemu_plugin_irq_hook(int number);
 void qemu_plugin_irq_hook(int number) {
 		if (irq_cb) {
 				irq_cb(number);
 		}
 }
-void qemu_plugin_register_irq_hook(void (*cb)(int)) {
-		irq_cb = cb;
+
+void qemu_plugin_register_irq_hook(void (*notify_cb)(int), void (*finish_cb)(int)) {
+		irq_cb = notify_cb;
+		irq_finish_cb = finish_cb;
 }
 uint64_t qemu_plugin_timer_new_ns(void (*cb)(void *), void *data) {
 	return (uint64_t ) timer_new_ns(QEMU_CLOCK_VIRTUAL, cb, data);
@@ -709,4 +712,9 @@ uint64_t qemu_plugin_u64_sum(qemu_plugin_u64 entry)
     }
     return total;
 }
-
+void qemu_plugin_irqret_hook(int irq_num);
+void qemu_plugin_irqret_hook(int irq_num) {
+	if (irq_finish_cb) {
+			irq_finish_cb(irq_num);
+	}
+}
