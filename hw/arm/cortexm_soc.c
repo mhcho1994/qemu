@@ -38,6 +38,21 @@ static void cortexm_soc_initfn(Object *obj)
 {
     CORTEXMState *s = CORTEXM_SOC(obj);
 
+	object_property_add_uint32_ptr(obj, "ram_baseaddr",
+                                     &(s->ram_baseaddr),
+                                     OBJ_PROP_FLAG_READWRITE); // accessor is not needed for simple fields
+
+//    object_property_set_default_uint(obj, "ram_baseaddr",
+//                                             0x20000000);
+
+
+    object_property_add_uint32_ptr(obj, "shram_baseaddr",
+                                     &s->shram_baseaddr,
+                                     OBJ_PROP_FLAG_READWRITE);
+
+//    object_property_set_default_uint(obj, "shram_baseaddr",
+ //                                            0x10000000);
+
     object_initialize_child(obj, "armv7m", &s->armv7m, TYPE_ARMV7M);
 
     s->sysclk = qdev_init_clock_in(DEVICE(s), "sysclk", NULL, NULL, 0);
@@ -141,28 +156,17 @@ static void cortexm_soc_realize(DeviceState *dev_soc, Error **errp)
     create_unimplemented_device("generic_io",    0x40000000, 0x1FFFFFFF);
 }
 
-static Property cortexm_soc_props[] = {
-    DEFINE_PROP_UINT32("ram_baseaddr",   CORTEXMState, ram_baseaddr,   0x20000000),
-    DEFINE_PROP_UINT32("shram_baseaddr", CORTEXMState, shram_baseaddr, 0x10000000),
-};
-
-
 static void cortexm_soc_class_init(ObjectClass *klass, const void *data)
 {
     DeviceClass *dc = DEVICE_CLASS(klass);
 
     dc->realize = cortexm_soc_realize;
 
-
-
 	object_class_property_add_link(klass, "shram_backend",
     TYPE_MEMORY_BACKEND,
     offsetof(CORTEXMState, shram_backend),
     qdev_prop_allow_set_link_before_realize,
     0);
-
-	device_class_set_props(dc, cortexm_soc_props);
-
 }
 
 static const TypeInfo cortexm_soc_info = {

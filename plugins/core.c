@@ -21,12 +21,14 @@
 #include "exec/tb-flush.h"
 #include "tcg/tcg-op-common.h"
 #include "plugin.h"
+#if 0
 #include <Python.h>
 
 void force_python_link(void);
 void force_python_link(void) {
     Py_Initialize();
 }
+#endif 
 
 struct qemu_plugin_cb {
     struct qemu_plugin_ctx *ctx;

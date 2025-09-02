@@ -479,7 +479,7 @@ static MemTxResult memory_region_read_with_attrs_accessor(MemoryRegion *mr,
 {
     uint64_t tmp = 0;
 	int bypass =0;
-    MemTxResult r;
+    MemTxResult r = 0;
 
 	if (exporter.read) {
 			if (!exporter.read(mr->name, (mr->addr + addr), &tmp, size)) {
