@@ -449,7 +449,7 @@ static MemTxResult  memory_region_read_accessor(MemoryRegion *mr,
     uint64_t tmp;
 	int bypass = 0;
 
-	if (exporter.read) {
+	if (exporter.read && !mr->subpage) {
         if (!exporter.read(mr->name, (mr->addr + addr), &tmp, size)) {
                 bypass = 1;
         }
@@ -481,7 +481,7 @@ static MemTxResult memory_region_read_with_attrs_accessor(MemoryRegion *mr,
 	int bypass =0;
     MemTxResult r = 0;
 
-	if (exporter.read) {
+	if (exporter.read && !mr->subpage) {
 			if (!exporter.read(mr->name, (mr->addr + addr), &tmp, size)) {
 					bypass= 1;
 			}
@@ -519,7 +519,7 @@ static MemTxResult memory_region_write_accessor(MemoryRegion *mr,
                                       memory_region_name(mr));
     }
 
-	if (exporter.write) {
+	if (exporter.write && !mr->subpage) {
         if (!exporter.write(mr->name, (mr->addr + addr), tmp, size)) {
                bypass= 1;
         }
@@ -546,7 +546,7 @@ static MemTxResult memory_region_write_with_attrs_accessor(MemoryRegion *mr,
         trace_memory_region_ops_write(get_cpu_index(), mr, abs_addr, tmp, size,
                                       memory_region_name(mr));
     }
-	if (exporter.write) {
+	if (exporter.write && !mr->subpage) {
 			if (!exporter.write(mr->name, (mr->addr + addr), tmp, size)) {
 					return 0;
 			}
