@@ -92,7 +92,13 @@ static void cortexm_machine_init(MachineClass *mc)
     /* SRAM pre-allocated as part of the SoC instantiation */
     mc->default_ram_size = 0;
 
+	//TODO: Add when adding new device
 	machine_class_allow_dynamic_sysbus_dev(mc, "stm32f2xx-usart");
+	machine_class_allow_dynamic_sysbus_dev(mc, "stm32l4x5-rcc");
+	machine_class_allow_dynamic_sysbus_dev(mc, "stm32f2xx-adc");
+	machine_class_allow_dynamic_sysbus_dev(mc, "stm32f2xx-spi");
+	machine_class_allow_dynamic_sysbus_dev(mc, "stm32f2xx-timer");
+	machine_class_allow_dynamic_sysbus_dev(mc, "stm32f4xx-syscfg");
 }
 
 DEFINE_MACHINE("cortexm", cortexm_machine_init)

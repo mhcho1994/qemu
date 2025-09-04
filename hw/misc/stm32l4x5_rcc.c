@@ -1481,3 +1481,6 @@ static const TypeInfo stm32l4x5_rcc_types[] = {
 };
 
 DEFINE_TYPES(stm32l4x5_rcc_types)
+
+
+
