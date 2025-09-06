@@ -1676,6 +1676,7 @@ static void do_v7m_exception_exit(ARMCPU *cpu)
                 v7m_stack_read(cpu, &env->regs[11], frameptr + 0x24, mmu_idx);
 
 			/* After reading registers from the stack */
+			printf("Frame Pointer (SP):  0x%08x\n", frameptr);
 printf("R4 = 0x%08x\n", env->regs[4]);
 printf("R5 = 0x%08x\n", env->regs[5]);
 printf("R6 = 0x%08x\n", env->regs[6]);
@@ -1701,6 +1702,7 @@ printf("R11 = 0x%08x\n", env->regs[11]);
 
 		if (pop_ok) {
 			printf("Context Switch:\n");
+			printf("Frame Pointer (SP):  0x%08x\n", frameptr);
     printf("R0  = 0x%08x\n", env->regs[0]);
     printf("R1  = 0x%08x\n", env->regs[1]);
     printf("R2  = 0x%08x\n", env->regs[2]);
