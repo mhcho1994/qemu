@@ -226,7 +226,7 @@ QEMU_PLUGIN_API
 int qemu_plugin_read_memory(unsigned long long addr, uint8_t *mem_buf, int len);
 
 QEMU_PLUGIN_API
-void qemu_plugin_raise_irq(int irq);
+void qemu_plugin_raise_irq(int irq, int secure);
 
 QEMU_PLUGIN_API
 void qemu_plugin_pulse_irq(int irq);

@@ -107,7 +107,7 @@ void update_reg_reg(int reg, int source) {
 	    tcg_temp_free_i32(masked);
 		tcg_gen_exit_tb(NULL, 0);
 	} else {
-		tcg_gen_mov_tl(t, s);
+		tcg_gen_mov_i32(t, s);
 	}
 }
 
@@ -177,7 +177,7 @@ void return_from_runtime(void ) {
                     TCGv_i32 r= cpu_R[i];
                     TCGv_ptr ptr = tcg_constant_ptr((intptr_t)context);
                     tcg_gen_ld_i32(reg_val_t, ptr, 0);
-                    tcg_gen_mov_tl(r, reg_val_t);
+                    tcg_gen_mov_i32(r, reg_val_t);
             }
             tcg_gen_exit_tb(NULL, 0); 
             return;
@@ -196,7 +196,7 @@ void update_reg(int reg, int target) {
 					tcg_gen_st_i32(r, ptr, 0);
 			}
 	}
-    tcg_gen_mov_tl(t, tcg_constant_i32(target));
+    tcg_gen_mov_i32(t, tcg_constant_i32(target));
 
 	if (reg == 15) {
     	tcg_gen_exit_tb(NULL, 0);

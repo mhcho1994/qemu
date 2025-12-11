@@ -591,8 +591,8 @@ static void armv7m_reset(void *opaque)
 }
 
 extern void armv7m_nvic_clear_pending(NVICState *s, int irq, bool secure);
-void raise_irq(CPUState *cs, int irq_num);
-void raise_irq(CPUState *cs, int irq_num) {
+void raise_irq(CPUState *cs, int irq_num, int secure);
+void raise_irq(CPUState *cs, int irq_num, int secure) {
     if (!cs) {
         fprintf(stderr, "raise_arm_irq: NULL CPUState\n");
         return;
@@ -617,7 +617,7 @@ void raise_irq(CPUState *cs, int irq_num) {
 		locked = 1;
 	}
 
-	armv7m_nvic_set_pending(cpu->env.nvic, irq_num, false);
+	armv7m_nvic_set_pending(cpu->env.nvic, irq_num, secure);
 
 	if (locked) {
 		bql_unlock();

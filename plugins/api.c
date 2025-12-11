@@ -608,9 +608,9 @@ int64_t qemu_plugin_get_virtual_timer(void) {
 	return qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
 }
 
-extern void raise_irq(CPUState *cs, int irq_num);
-void qemu_plugin_raise_irq(int irq) {
-	raise_irq(first_cpu, irq); 
+extern void raise_irq(CPUState *cs, int irq_num, int secure);
+void qemu_plugin_raise_irq(int irq, int secure) {
+	raise_irq(first_cpu, irq, secure); 
 }
 
 extern void pulse_irq(CPUState *cs, int irq_num);
