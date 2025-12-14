@@ -93,8 +93,14 @@ unsigned long long  intern_gpa2hva(unsigned long long  addr){
     return (unsigned long long) ptr;
 }
 
+#ifdef TARGET_AARCH64
+	extern void update_reg_reg64(int reg, int source);
+#endif 
 void update_reg_reg(int reg, int source);
 void update_reg_reg(int reg, int source) {
+#ifdef TARGET_AARCH64
+	update_reg_reg64(reg, source);
+#else
 	TCGv_i32 t= cpu_R[reg];
 	TCGv_i32 s= cpu_R[source];
     //TODO: Fix this we shouldn't hardcode, we should expose this 
@@ -109,6 +115,7 @@ void update_reg_reg(int reg, int source) {
 	} else {
 		tcg_gen_mov_i32(t, s);
 	}
+#endif 
 }
 
 #if 0
@@ -131,8 +138,14 @@ void load_reg_from_mem(int reg, int source) {
 
 #endif 
 
+#ifdef TARGET_AARCH64
+void load_reg_from_mem64(int reg, int source);
+#endif 
 void load_reg_from_mem(int reg, int source);
 	void load_reg_from_mem(int reg, int source) {
+#ifdef TARGET_AARCH64
+		load_reg_from_mem64(reg, source);
+#else
     TCGv_i32 tmp = tcg_temp_new_i32();
     // Convert cpu_R[source] (TCGv_i32) to TCGv_ptr
     TCGv_ptr addr_ptr = tcg_temp_new_ptr();
@@ -152,10 +165,17 @@ void load_reg_from_mem(int reg, int source);
     if (reg == 15) {
         tcg_gen_exit_tb(NULL, 0);
     }
+#endif
 }
 
+#ifdef TARGET_AARCH64
+void store_reg_to_mem64(int reg, int destination);
+#endif
 void store_reg_to_mem(int reg, int destination);
 void store_reg_to_mem(int reg, int destination) {
+#ifdef TARGET_AARCH64
+		store_reg_to_mem64(reg, destination);
+#else
     TCGv_i32 val = cpu_R[reg];            // Value to store
     TCGv_i32 addr_i32 = cpu_R[destination]; // Address (as i32)
     TCGv_ptr addr_ptr = tcg_temp_new_ptr();
@@ -167,6 +187,7 @@ void store_reg_to_mem(int reg, int destination) {
     gen_helper_cortexm_st(tcg_env, addr_ptr, val);
 
     tcg_temp_free_ptr(addr_ptr);
+#endif 
 }
 
 void return_from_runtime(void );
@@ -183,8 +204,14 @@ void return_from_runtime(void ) {
             return;
 }
 
+#ifdef TARGET_AARCH64
+    extern void update_reg64(int reg, int target);
+#endif
 void update_reg(int reg, int target);
 void update_reg(int reg, int target) {
+#ifdef TARGET_AARCH64
+		update_reg64(reg, target);
+#else
     TCGv_i32 t= cpu_R[reg];
 	//TODO: Fix this we shouldn't hardcode, we should expose this 
 	// as the end of ram.
@@ -201,6 +228,7 @@ void update_reg(int reg, int target) {
 	if (reg == 15) {
     	tcg_gen_exit_tb(NULL, 0);
 	}
+#endif
 }
 void log_reg(uint8_t * buffer, uint16_t * index, int reg);
 void log_reg(uint8_t * buffer, uint16_t * index, int reg) {

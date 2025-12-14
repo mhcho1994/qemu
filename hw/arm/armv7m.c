@@ -591,6 +591,7 @@ static void armv7m_reset(void *opaque)
 }
 
 extern void armv7m_nvic_clear_pending(NVICState *s, int irq, bool secure);
+extern void gic_set_irq(void *opaque, int irq, int level);
 void raise_irq(CPUState *cs, int irq_num, int secure);
 void raise_irq(CPUState *cs, int irq_num, int secure) {
     if (!cs) {
@@ -606,23 +607,25 @@ void raise_irq(CPUState *cs, int irq_num, int secure) {
     ARMCPU *cpu = ARM_CPU(cs);
 
 
-    if (!cpu->env.nvic) {
-        fprintf(stderr, "raise_arm_irq: NVIC not initialized\n");
-        return;
-    }
+    if (cpu->env.nvic) {
 
-	int locked =0;
-	if (!bql_locked()) {
-		bql_lock();
-		locked = 1;
+		int locked =0;
+		if (!bql_locked()) {
+			bql_lock();
+			locked = 1;
+		}
+
+		armv7m_nvic_set_pending(cpu->env.nvic, irq_num, secure);
+
+		if (locked) {
+			bql_unlock();
+		}
 	}
 
-	armv7m_nvic_set_pending(cpu->env.nvic, irq_num, secure);
-
-	if (locked) {
-		bql_unlock();
+	if (cpu->env.gicv3state) {
+		//Cortex A
+		gic_set_irq(cpu->env.gicv3state, irq_num, 1);
 	}
-
 }
 
 

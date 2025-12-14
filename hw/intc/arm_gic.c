@@ -379,7 +379,8 @@ static void gic_set_irq_generic(GICState *s, int irq, int level,
 }
 
 /* Process a change in an external IRQ input.  */
-static void gic_set_irq(void *opaque, int irq, int level)
+void gic_set_irq(void *opaque, int irq, int level);
+void gic_set_irq(void *opaque, int irq, int level)
 {
     /* Meaning of the 'irq' parameter:
      *  [0..N-1] : external interrupts

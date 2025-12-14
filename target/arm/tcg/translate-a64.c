@@ -24,6 +24,7 @@
 #include "arm_ldst.h"
 #include "semihosting/semihost.h"
 #include "cpregs.h"
+#include "tcg/tcg-temp-internal.h"
 
 static TCGv_i64 cpu_X[32];
 static TCGv_i64 cpu_pc;
@@ -10377,6 +10378,113 @@ static void aarch64_tr_tb_stop(DisasContextBase *dcbase, CPUState *cpu)
     }
 }
 
+//FastDyn Code
+void update_reg_reg64(int reg, int source);
+void update_reg_reg64(int reg, int source) {
+    TCGv_i64 t= cpu_X[reg];
+    TCGv_i64 s= cpu_X[source];
+	tcg_gen_mov_i64(t, s);
+    if (reg == 15) {
+        //make sure LSB is zero.
+#if 0 //Probably not needed in Cortex-A			
+        TCGv_i64 masked = tcg_temp_new_i32();
+        tcg_gen_andi_i64(masked, s, ~1);  // mask LSB to 0
+        tcg_gen_mov_i64(t, masked);       // move to target temp t
+        tcg_temp_free_i64(masked);
+#endif 
+        tcg_gen_exit_tb(NULL, 0);
+    }
+}
+
+void update_reg64(int reg, int target);
+void update_reg64(int reg, int target) {
+	TCGv_i64 t= cpu_X[reg];
+    tcg_gen_mov_i64(t, tcg_constant_i64(target));
+
+	//TODO: r15 not PC
+    if (reg == 15) {
+        tcg_gen_exit_tb(NULL, 0);
+    }
+}
+
+void load_reg_from_mem64(int reg, int source);
+void load_reg_from_mem64(int reg, int source) {
+	TCGv_i64 tmp = tcg_temp_new_i64();
+    // Convert cpu_R[source] (TCGv_i32) to TCGv_ptr
+    TCGv_ptr addr_ptr = tcg_temp_new_ptr();
+
+	// Move the value from register to a temporary pointer (register holds the address)
+	tcg_gen_trunc_i64_ptr(addr_ptr, cpu_X[source]);
+
+    // Call helper: pass tmp (result) and addr_ptr (address)
+    gen_helper_cortexa_ld(tmp, tcg_env, addr_ptr);
+
+    // Move helper result to target register
+    tcg_gen_mov_i64(cpu_X[reg], tmp);
+
+    tcg_temp_free_i64(tmp);
+    tcg_temp_free_ptr(addr_ptr);
+
+    if (reg == 15) {
+        tcg_gen_exit_tb(NULL, 0);
+    }
+}
+
+void store_reg_to_mem64(int reg, int destination);
+void store_reg_to_mem64(int reg, int destination) {
+    TCGv_i64 val = cpu_X[reg];            // Value to store
+    TCGv_i64 addr_i64 = cpu_X[destination]; // Address (as i32)
+    TCGv_ptr addr_ptr = tcg_temp_new_ptr();
+
+    // Extend 32-bit address to pointer type
+    tcg_gen_trunc_i64_ptr(addr_ptr, addr_i64);
+
+    // Call helper: pass env, address, and value
+    gen_helper_cortexa_st(tcg_env, addr_ptr, val);
+
+    tcg_temp_free_ptr(addr_ptr);
+}
+
+void log_reg64(uint8_t * buffer, uint16_t * index, int reg);
+void log_reg64(uint8_t * buffer, uint16_t * index, int reg) {
+    if (reg < 16) {
+    TCGv_i64 t= cpu_X[reg];
+
+    TCGv_ptr ptr = tcg_constant_ptr((intptr_t)buffer);
+    TCGv_ptr index_t =tcg_constant_ptr((intptr_t)index);
+    TCGv_ptr tmp_ptr = tcg_temp_new_ptr();
+
+    TCGv_i32 index_val_t = tcg_temp_ebb_new_i32();
+    tcg_gen_ld16u_i32(index_val_t, index_t, 0);
+
+	//temp has index now
+    tcg_gen_ext_i32_ptr(tmp_ptr, index_val_t);
+    tcg_gen_add_ptr(tmp_ptr, ptr, tmp_ptr);
+
+    //tmp_ptr now points to the next slot
+    tcg_gen_st_i64(t, tmp_ptr, 0);
+
+    //Logged, lets increment pointer for next guy
+    tcg_gen_addi_i32(index_val_t, index_val_t, 8);
+    tcg_gen_st16_i32(index_val_t, index_t, 0);
+
+    //Updated
+
+    // Free the temporaries
+    tcg_temp_free_ptr(ptr);
+    tcg_temp_free_ptr(index_t);
+    tcg_temp_free_ptr(tmp_ptr);
+    } else {
+            //log fpu
+            TCGv_ptr buffer_ptr = tcg_constant_ptr((intptr_t)buffer);
+            TCGv_ptr index_ptr = tcg_constant_ptr((intptr_t) index);
+			//TODO: FIgure out for x registers.
+            TCGv_i32 tmp = tcg_constant_i32(reg - 26);
+
+            // Call helper: pass tmp (result) and addr_ptr (address)
+            gen_helper_arm_log_fp(tcg_env, buffer_ptr, index_ptr, tmp);
+    }
+}
 const TranslatorOps aarch64_translator_ops = {
     .init_disas_context = aarch64_tr_init_disas_context,
     .tb_start           = aarch64_tr_tb_start,

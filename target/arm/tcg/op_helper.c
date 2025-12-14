@@ -305,11 +305,25 @@ uint32_t HELPER(cortexm_ld)(CPUARMState *env, void * addr)
 	return cpu_ldl_data(env, (unsigned int) (uintptr_t)addr);
 }
 
+uint64_t HELPER(cortexa_ld)(CPUARMState *env, void * addr)
+{
+    // Direct physical memory load (no MMU)
+    //return (uint32_t)(uintptr_t)addr;
+    return cpu_ldq_data(env, (unsigned int) (uintptr_t)addr);
+}
+
 void HELPER(cortexm_st)(CPUARMState *env, void * addr, uint32_t val) {
     // Possibly do address checks, MPU etc here
 
     // Actually perform the memory write (little-endian 32-bit store):
     cpu_stl_data(env, (unsigned int) (uintptr_t)addr, val);
+}
+
+void HELPER(cortexa_st)(CPUARMState *env, void * addr, uint64_t val) {
+    // Possibly do address checks, MPU etc here
+
+    // Actually perform the memory write (little-endian 32-bit store):
+    cpu_stq_data(env, (unsigned int) (uintptr_t)addr, val);
 }
 
 void HELPER(arm_log_fp)(CPUARMState *env, void * buffer, void * index, uint32_t reg) {
