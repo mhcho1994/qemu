@@ -75,6 +75,8 @@ enum plugin_dyn_cb_type {
 	PLUGIN_CB_INLINE_UPDATE_REG,
 	PLUGIN_CB_INLINE_UPDATE_MEM,
 	PLUGIN_CB_INLINE_LOG_REG,
+	PLUGIN_CB_INLINE_STORE_IO,
+	PLUGIN_CB_INLINE_LOAD_IO
 };
 
 struct qemu_plugin_regular_cb {

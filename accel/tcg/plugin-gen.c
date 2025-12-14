@@ -297,6 +297,20 @@ void gen_inline_log_reg_cb(struct qemu_plugin_inline_cb *cb) {
 	log_reg(buf->buffer, &buf->index, cb->imm);
 }
 
+extern void store_io(uint8_t * addr, int reg);
+void gen_inline_store_io_cb(struct qemu_plugin_inline_cb *cb);
+void gen_inline_store_io_cb(struct qemu_plugin_inline_cb *cb) {
+	//TODO: Little divergence, let's send the absoluute address instead of doing addition inside the store_io
+    store_io((void *)cb->entry.offset, cb->imm);
+}
+
+extern void load_io(uint8_t * addr, int reg);
+void gen_inline_load_io_cb(struct qemu_plugin_inline_cb *cb);
+void gen_inline_load_io_cb(struct qemu_plugin_inline_cb *cb) {
+    //TODO: Little divergence, let's send the absoluute address instead of doing addition inside the store_io
+    load_io((void *)cb->entry.offset, cb->imm);
+}
+
 extern void *gpa2hva(MemoryRegion **p_mr, hwaddr addr, uint64_t size, Error **errp);
 unsigned long long get_gpa2hva(unsigned long long addr);
 unsigned long long get_gpa2hva(unsigned long long addr) {
@@ -350,6 +364,12 @@ static void inject_cb(struct qemu_plugin_dyn_cb *cb)
 
 	case PLUGIN_CB_INLINE_LOG_REG:
 		gen_inline_log_reg_cb(&cb->inline_insn);
+		break;
+	case PLUGIN_CB_INLINE_LOAD_IO:
+		gen_inline_load_io_cb(&cb->inline_insn);
+		break;
+	case PLUGIN_CB_INLINE_STORE_IO:
+        gen_inline_store_io_cb(&cb->inline_insn);
 		break;
     default:
         g_assert_not_reached();

@@ -270,6 +270,26 @@ void log_reg(uint8_t * buffer, uint16_t * index, int reg) {
 	}
 }
 
+void store_io(uint8_t * addr, int reg);
+void store_io(uint8_t * addr, int reg) {
+    TCGv_i32 t= cpu_R[reg];
+
+    TCGv_ptr ptr = tcg_constant_ptr((intptr_t)(addr));
+
+    //tmp_ptr now points to the next slot
+    tcg_gen_st_i32(t, ptr, 0);
+}
+
+void load_io(uint8_t * addr, int reg);
+void load_io(uint8_t * addr, int reg) {
+    TCGv_i32 t= cpu_R[reg];
+
+    TCGv_ptr ptr = tcg_constant_ptr((intptr_t)(addr));
+
+    //tmp_ptr now points to the next slot
+    tcg_gen_ld_i32(t, ptr, 0);
+}
+
 #if 0
 void update_mem(unsigned long long addr, int value);
 void update_mem(int reg, int target) {
