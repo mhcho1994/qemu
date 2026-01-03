@@ -37,6 +37,7 @@ OBJECT_DECLARE_SIMPLE_TYPE(CORTEXMState, CORTEXM_SOC)
 #define FLASH_SIZE (512 *1024 * 1024)
 #define SRAM_SIZE (512 * 1024 * 1024)
 #define SRAM_BASE_ADDRESS 0x20000000
+#define CORTEXM_MAX_RAMS 100
 
 struct CORTEXMState {
     SysBusDevice parent_obj;
@@ -48,10 +49,10 @@ struct CORTEXMState {
     MemoryRegion flash;
     MemoryRegion flash_alias;
 
-	HostMemoryBackend * ram_backend;
+	HostMemoryBackend * ram_backend[CORTEXM_MAX_RAMS];
 	HostMemoryBackend * shram_backend;
 
-	uint32_t ram_baseaddr;
+	uint32_t ram_baseaddr[CORTEXM_MAX_RAMS];
 	uint32_t shram_baseaddr;
 
     Clock *sysclk;

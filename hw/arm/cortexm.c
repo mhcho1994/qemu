@@ -30,6 +30,7 @@
 #include "hw/arm/cortexm_soc.h"
 #include "hw/arm/boot.h"
 #include "qemu/units.h"
+#include "hw/misc/unimp.h"
 #include "system/address-spaces.h"
 
 /* olimex-stm32-h405 implementation is derived from netduinoplus2 */
@@ -57,16 +58,16 @@ static void cortexm_init(MachineState *machine)
 
     sysbus_realize_and_unref(SYS_BUS_DEVICE(dev), &error_fatal);
 
-	if (!machine->ram) {
-        if (!machine->ram_size) {
-            machine->ram_size = 512 * KiB;
-        }
+		if (!machine->ram) {
+    	    if (!machine->ram_size) {
+	            machine->ram_size = 512 * KiB;
+    	    }
 
-        error_report("No memdev provided. Use -machine memdev=...");
-        exit(1);
-    }
+	        error_report("No memdev provided. Use -machine memdev=...");
+	        exit(1);
+	    }
 
-	memory_region_add_subregion(get_system_memory(), object_property_get_uint(OBJECT(dev), "ram_baseaddr", &error_fatal), machine->ram);
+		memory_region_add_subregion(get_system_memory(), object_property_get_uint(OBJECT(dev), "ram_baseaddr0", &error_fatal), machine->ram);
 
     armv7m_load_kernel(CORTEXM_SOC(dev)->armv7m.cpu,
                        machine->kernel_filename,

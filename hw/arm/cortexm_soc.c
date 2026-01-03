@@ -38,20 +38,16 @@ static void cortexm_soc_initfn(Object *obj)
 {
     CORTEXMState *s = CORTEXM_SOC(obj);
 
-	object_property_add_uint32_ptr(obj, "ram_baseaddr",
-                                     &(s->ram_baseaddr),
-                                     OBJ_PROP_FLAG_READWRITE); // accessor is not needed for simple fields
+	for (int i =0; i < CORTEXM_MAX_RAMS; i++) {
+		char prop[64];
+		snprintf(prop, sizeof(prop), "ram_baseaddr%d", i);
+		object_property_add_uint32_ptr(obj, prop,
+    	                                 &(s->ram_baseaddr[i]),
+        	                             OBJ_PROP_FLAG_READWRITE); // accessor is not needed for simple fields
+	}
 
-//    object_property_set_default_uint(obj, "ram_baseaddr",
-//                                             0x20000000);
 
 
-    object_property_add_uint32_ptr(obj, "shram_baseaddr",
-                                     &s->shram_baseaddr,
-                                     OBJ_PROP_FLAG_READWRITE);
-
-//    object_property_set_default_uint(obj, "shram_baseaddr",
- //                                            0x10000000);
 
     object_initialize_child(obj, "armv7m", &s->armv7m, TYPE_ARMV7M);
 
@@ -130,8 +126,10 @@ static void cortexm_soc_realize(DeviceState *dev_soc, Error **errp)
 	memory_region_add_subregion(system_memory, 0x20000000, ram);
 #endif 
 
-	if (s->shram_backend) {
-			memory_region_add_subregion(system_memory, s->shram_baseaddr, &s->shram_backend->mr);
+	for (int i =1; i < CORTEXM_MAX_RAMS; i++) {
+			if (s->ram_backend[i]) {
+				memory_region_add_subregion(system_memory, s->ram_baseaddr[i], &s->ram_backend[i]->mr);
+			}
 	}
 
 
@@ -153,7 +151,7 @@ static void cortexm_soc_realize(DeviceState *dev_soc, Error **errp)
         return;
     }
 
-    create_unimplemented_device("generic_io",    0x40000000, 0x1FFFFFFF);
+    create_unimplemented_device("generic_io",    0x00000000, 0xFFFFFFFF);
 }
 
 static void cortexm_soc_class_init(ObjectClass *klass, const void *data)
@@ -162,11 +160,18 @@ static void cortexm_soc_class_init(ObjectClass *klass, const void *data)
 
     dc->realize = cortexm_soc_realize;
 
-	object_class_property_add_link(klass, "shram_backend",
-    TYPE_MEMORY_BACKEND,
-    offsetof(CORTEXMState, shram_backend),
-    qdev_prop_allow_set_link_before_realize,
-    0);
+	for (int i =1; i < CORTEXM_MAX_RAMS; i++) {
+        char prop[64];
+        snprintf(prop, sizeof(prop), "ram_backend%d", i);	
+		size_t off = offsetof(CORTEXMState, ram_backend) +
+                 i * sizeof(((CORTEXMState *)0)->ram_backend[0]);
+		object_class_property_add_link(klass, prop,
+		    TYPE_MEMORY_BACKEND,
+		    off,
+		    qdev_prop_allow_set_link_before_realize,
+		    0);
+
+	}
 }
 
 static const TypeInfo cortexm_soc_info = {
