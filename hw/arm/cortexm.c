@@ -41,14 +41,15 @@
 static void cortexm_init(MachineState *machine)
 {
     DeviceState *dev;
-	MachineClass *mc = MACHINE_GET_CLASS(machine);
+	// MachineClass *mc = MACHINE_GET_CLASS(machine);
+    MachineState *ms = MACHINE(machine);
     Clock *sysclk;
     /* This clock doesn't need migration because it is fixed-frequency */
     sysclk = clock_new(OBJECT(machine), "SYSCLK");
     clock_set_hz(sysclk, SYSCLK_FRQ);
 
-	const char *cpu_type = mc->default_cpu_type;
-	printf("%s", cpu_type);
+	// const char *cpu_type = mc->default_cpu_type;
+	printf("Current CPU type: %s\n", ms->cpu_type ? ms->cpu_type : "<unset>");
 
 
     dev = qdev_new(TYPE_CORTEXM_SOC);
